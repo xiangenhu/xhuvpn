@@ -46,6 +46,26 @@
     #auth-section{max-width:400px;margin:4rem auto}
     #auth-section h2{margin-bottom:1rem;font-size:1.1rem}
     #app{display:none}
+    .downloads-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.6rem}
+    .dl-card{display:flex;flex-direction:column;align-items:center;gap:.5rem;padding:1rem;background:var(--surface);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text);transition:border-color .15s,background .15s;cursor:pointer}
+    .dl-card:hover{border-color:var(--accent);background:#0d1829}
+    .dl-card svg{width:32px;height:32px;opacity:.8}
+    .dl-card .dl-label{font-size:.8rem;font-weight:600}
+    .dl-card .dl-hint{font-size:.65rem;color:var(--muted)}
+    .modal-qr-section{text-align:center;margin-bottom:1rem}
+    .modal-qr-section p{font-size:.75rem;color:var(--muted);margin-top:.4rem}
+    .modal-actions-mobile{display:none}
+    @media(max-width:600px){
+      body{padding:1rem}
+      header{flex-wrap:wrap;gap:.5rem}
+      header h1{font-size:1.1rem}
+      .peer-row{flex-direction:column;align-items:flex-start;gap:.6rem}
+      .peer-actions{width:100%}
+      .peer-actions button{flex:1}
+      .modal{margin:1rem;max-width:calc(100vw - 2rem)}
+      .modal-actions-mobile{display:flex;gap:.5rem;margin-top:.5rem}
+      .downloads-grid{grid-template-columns:1fr 1fr}
+    }
   </style>
 </head>
 <body>
@@ -60,8 +80,7 @@
   <header>
     <h1>VPN Manager</h1>
     <span class="badge" id="status-badge">checking...</span>
-    <button class="btn-primary" id="download-app-btn" style="margin-left:auto;font-size:.75rem;display:none" onclick="downloadApp()">&#11015; Desktop App</button>
-    <button class="btn-muted" style="font-size:.75rem" onclick="logout()">Logout</button>
+    <button class="btn-muted" style="margin-left:auto;font-size:.75rem" onclick="logout()">Logout</button>
   </header>
 
   <div class="section">
@@ -82,15 +101,48 @@
     <h2>Peers</h2>
     <div id="peers-list">Loading...</div>
   </div>
+
+  <div class="section">
+    <h2>Get WireGuard App</h2>
+    <div class="downloads-grid">
+      <a class="dl-card" id="dl-windows" style="display:none" onclick="downloadApp();return false" href="#">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 12V6.75l6-1.32v6.48L3 12zm6.27.09l8.73.01V5.28l-8.73 1.56V12.09zM3 13l6 .09v6.81l-6-1.08V13zm6.27-.01v6.82l8.73 1.47V13.01l-8.73-.02z"/></svg>
+        <span class="dl-label">Windows</span>
+        <span class="dl-hint">Desktop app</span>
+      </a>
+      <a class="dl-card" href="https://apps.apple.com/app/wireguard/id1441195209" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+        <span class="dl-label">iPhone</span>
+        <span class="dl-hint">App Store</span>
+      </a>
+      <a class="dl-card" href="https://play.google.com/store/apps/details?id=com.wireguard.android" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3.18 23.77L14.27 12 3.18.23C2.8.61 2.56 1.17 2.56 1.86v20.28c0 .69.24 1.25.62 1.63zm1.16 1.12l12.78-7.38-2.83-2.83-9.95 10.21zm0-25.78l9.95 10.21 2.83-2.83L4.34.9zM21.44 10.96l-3.59-2.07-3.12 3.11 3.12 3.11 3.59-2.07c.6-.34.6-1.74 0-2.08z"/></svg>
+        <span class="dl-label">Android</span>
+        <span class="dl-hint">Play Store</span>
+      </a>
+      <a class="dl-card" id="dl-macos" style="display:none" onclick="downloadApp();return false" href="#">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+        <span class="dl-label">macOS</span>
+        <span class="dl-hint">Desktop app</span>
+      </a>
+    </div>
+    <div style="margin-top:.8rem;font-size:.75rem;color:var(--muted)">
+      Mobile: Install the official WireGuard app, then scan a peer's QR code to connect.
+    </div>
+  </div>
 </div>
 
 <div class="modal-overlay" id="config-modal">
   <div class="modal">
     <h3 id="modal-title">Peer Config</h3>
-    <img id="modal-qr" src="" alt="QR" width="180" height="180" />
+    <div class="modal-qr-section">
+      <img id="modal-qr" src="" alt="QR" width="200" height="200" />
+      <p>Scan with WireGuard app on iPhone or Android</p>
+    </div>
     <pre id="modal-config"></pre>
     <div class="row">
       <button class="btn-primary" onclick="downloadConfig()">Download .conf</button>
+      <button class="btn-muted" onclick="copyConfig()">Copy</button>
       <button class="btn-muted" onclick="closeModal()">Close</button>
     </div>
   </div>
@@ -154,10 +206,17 @@
     try{
       const res=await apiFetch('/api/download/app/info');
       const d=await res.json();
-      const btn=document.getElementById('download-app-btn');
       if(d.available){
-        btn.style.display='';
-        btn.title=d.fileName+' ('+Math.round(d.size/1024/1024)+'MB)';
+        const name=d.fileName.toLowerCase();
+        const size=Math.round(d.size/1024/1024)+'MB';
+        if(name.includes('.exe')||name.includes('win')){
+          const el=document.getElementById('dl-windows');
+          el.style.display='';el.title=d.fileName+' ('+size+')';
+        }
+        if(name.includes('.dmg')||name.includes('mac')){
+          const el=document.getElementById('dl-macos');
+          el.style.display='';el.title=d.fileName+' ('+size+')';
+        }
       }
     }catch{}
   }
@@ -166,6 +225,14 @@
     const a=document.createElement('a');
     a.href='/api/download/app?key='+encodeURIComponent(API_KEY);
     a.click();
+  }
+
+  function copyConfig(){
+    navigator.clipboard.writeText(currentConfig).then(()=>{
+      const btn=event.target;
+      btn.textContent='Copied!';
+      setTimeout(()=>{btn.textContent='Copy';},1500);
+    });
   }
 
   async function addPeer(){
@@ -185,9 +252,9 @@
   }
 
   async function viewConfig(name){
-    const res=await apiFetch(`/api/peers/${name}/config`);
-    const conf=await res.text();
-    showModal(name,conf,null);
+    const res=await apiFetch(`/api/peers/${name}/config`,{headers:{Accept:'application/json'}});
+    const d=await res.json();
+    showModal(name,d.config,d.qr);
   }
 
   async function removePeer(name){

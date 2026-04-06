@@ -271,6 +271,12 @@ app.get('/api/peers/:name/config', auth, async (req, res) => {
   const { pubKey: serverPubKey } = await getOrCreateServerKeys();
   const conf = buildClientConfig(peer.privKey, peer.ip, serverPubKey);
 
+  // Return JSON with QR if Accept header wants it, otherwise plain text download
+  if (req.headers.accept && req.headers.accept.includes('application/json')) {
+    const qr = await qrcode.toDataURL(conf);
+    return res.json({ name: peer.name, config: conf, qr });
+  }
+
   res.setHeader('Content-Disposition', `attachment; filename="${peer.name}.conf"`);
   res.setHeader('Content-Type', 'text/plain');
   res.send(conf);
