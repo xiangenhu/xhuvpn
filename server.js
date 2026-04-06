@@ -162,8 +162,8 @@ AllowedIPs = ${p.ip}/32`).join('\n');
 Address    = ${VPN_SUBNET}.1/24
 ListenPort = ${SERVER_PORT}
 PrivateKey = ${serverPrivKey}
-PostUp     = iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o ens4 -j MASQUERADE
-PostDown   = iptables -D FORWARD -i %i -j ACCEPT; iptables -t nat -D POSTROUTING -o ens4 -j MASQUERADE
+PostUp     = iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o $(ip route | awk '/default/ {print $5}') -j MASQUERADE
+PostDown   = iptables -D FORWARD -i %i -j ACCEPT; iptables -t nat -D POSTROUTING -o $(ip route | awk '/default/ {print $5}') -j MASQUERADE
 ${peerBlocks}
 `;
 }
