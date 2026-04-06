@@ -25,19 +25,28 @@ gcloud storage buckets create "gs://$BUCKET" \
   --location=us-central1 \
   --uniform-bucket-level-access 2>/dev/null || echo "  Bucket already exists."
 
-echo "==> [4/7] Generating SSH keypair for Cloud Run → GCE VM..."
+echo "==> [4/8] Creating GCE VM for WireGuard..."
+gcloud compute instances create "$VM_NAME" \
+  --zone="$VM_ZONE" \
+  --machine-type=e2-micro \
+  --image-family=ubuntu-2204-lts \
+  --image-project=ubuntu-os-cloud \
+  --tags=wireguard \
+  --boot-disk-size=10GB 2>/dev/null || echo "  VM already exists."
+
+echo "==> [5/8] Generating SSH keypair for Cloud Run → GCE VM..."
 SSH_KEY_FILE="$HOME/.ssh/vpn-cloudrun-key"
 if [ ! -f "$SSH_KEY_FILE" ]; then
   ssh-keygen -t ed25519 -f "$SSH_KEY_FILE" -N "" -C "vpn-cloudrun"
 fi
 
-echo "==> [5/7] Storing SSH private key in Secret Manager..."
+echo "==> [6/8] Storing SSH private key in Secret Manager..."
 gcloud secrets create vpn-ssh-private-key \
   --data-file="$SSH_KEY_FILE" 2>/dev/null || \
 gcloud secrets versions add vpn-ssh-private-key \
   --data-file="$SSH_KEY_FILE"
 
-echo "==> [6/7] Generating and storing API secret..."
+echo "==> [7/8] Generating and storing API secret..."
 API_SECRET=$(openssl rand -hex 32)
 echo -n "$API_SECRET" | gcloud secrets create vpn-api-secret \
   --data-file=- 2>/dev/null || \
@@ -47,7 +56,7 @@ echo ""
 echo "  ⚠  API Secret (save this): $API_SECRET"
 echo ""
 
-echo "==> [7/7] Adding SSH public key to GCE VM..."
+echo "==> [8/8] Adding SSH public key to GCE VM..."
 VM_USER="ubuntu"
 PUB_KEY=$(cat "${SSH_KEY_FILE}.pub")
 gcloud compute ssh "$VM_NAME" --zone="$VM_ZONE" \
