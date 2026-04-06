@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VPN Manager</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@300;500;700&display=swap');
+    :root {
+      --bg:#0a0e1a;--surface:#111827;--border:#1e2d40;
+      --accent:#00d4aa;--danger:#ef4444;--text:#e2e8f0;--muted:#64748b;
+      --mono:'JetBrains Mono',monospace;--sans:'Space Grotesk',sans-serif;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;padding:2rem}
+    header{display:flex;align-items:center;gap:1rem;margin-bottom:2rem;padding-bottom:1rem;border-bottom:1px solid var(--border)}
+    header h1{font-size:1.4rem;font-weight:700;letter-spacing:-0.02em}
+    .badge{font-family:var(--mono);font-size:.7rem;padding:.2rem .6rem;border-radius:999px;background:var(--accent);color:#000;font-weight:600}
+    .badge.danger{background:var(--danger);color:#fff}
+    .section{margin-bottom:2rem}
+    .section h2{font-size:.8rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:1rem}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1.2rem;margin-bottom:.8rem}
+    .card pre{font-family:var(--mono);font-size:.75rem;color:var(--accent);white-space:pre-wrap;word-break:break-all}
+    .row{display:flex;align-items:center;gap:.8rem;flex-wrap:wrap}
+    input[type=text]{background:#0d1829;border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:.85rem;padding:.5rem .8rem;outline:none;flex:1;min-width:160px}
+    input[type=text]:focus{border-color:var(--accent)}
+    input[type=password]{background:#0d1829;border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:.85rem;padding:.5rem .8rem;outline:none;width:100%;margin-bottom:.8rem}
+    button{font-family:var(--sans);font-size:.85rem;font-weight:600;padding:.5rem 1.2rem;border-radius:6px;border:none;cursor:pointer;transition:opacity .15s}
+    button:hover{opacity:.85} button:disabled{opacity:.4;cursor:not-allowed}
+    .btn-primary{background:var(--accent);color:#000}
+    .btn-danger{background:var(--danger);color:#fff}
+    .btn-muted{background:var(--border);color:var(--text)}
+    .peer-row{display:flex;justify-content:space-between;align-items:center;padding:.8rem 1rem;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:.5rem}
+    .peer-info .name{font-weight:600;font-size:.95rem}
+    .peer-info .meta{font-family:var(--mono);font-size:.72rem;color:var(--muted);margin-top:.2rem}
+    .peer-actions{display:flex;gap:.5rem}
+    .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center}
+    .modal-overlay.open{display:flex}
+    .modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.5rem;max-width:480px;width:100%}
+    .modal h3{margin-bottom:1rem}
+    .modal pre{font-family:var(--mono);font-size:.7rem;background:#0d1829;border:1px solid var(--border);border-radius:6px;padding:.8rem;white-space:pre-wrap;word-break:break-all;color:var(--accent);max-height:200px;overflow-y:auto;margin-bottom:1rem}
+    .modal img{display:block;margin:0 auto 1rem;border-radius:8px}
+    .msg{padding:.6rem 1rem;border-radius:6px;font-size:.85rem;margin-top:.5rem}
+    .msg.ok{background:#052e16;color:#4ade80;border:1px solid #166534}
+    .msg.err{background:#2d0a0a;color:#f87171;border:1px solid #7f1d1d}
+    #auth-section{max-width:400px;margin:4rem auto}
+    #auth-section h2{margin-bottom:1rem;font-size:1.1rem}
+    #app{display:none}
+  </style>
+</head>
+<body>
+<div id="auth-section">
+  <h2>🔐 VPN Manager</h2>
+  <input type="password" id="api-key-input" placeholder="Enter API secret…" />
+  <button class="btn-primary" onclick="login()">Unlock</button>
+  <div id="auth-msg"></div>
+</div>
+
+<div id="app">
+  <header>
+    <h1>⟨VPN⟩ Manager</h1>
+    <span class="badge" id="status-badge">checking…</span>
+    <button class="btn-muted" style="margin-left:auto;font-size:.75rem" onclick="logout()">Logout</button>
+  </header>
+
+  <div class="section">
+    <h2>Server Status</h2>
+    <div class="card"><pre id="wg-status">Loading…</pre></div>
+  </div>
+
+  <div class="section">
+    <h2>Add Peer</h2>
+    <div class="row">
+      <input type="text" id="peer-name" placeholder="peer name (e.g. alice-laptop)" />
+      <button class="btn-primary" id="add-btn" onclick="addPeer()">+ Add Peer</button>
+    </div>
+    <div id="add-msg"></div>
+  </div>
+
+  <div class="section">
+    <h2>Peers</h2>
+    <div id="peers-list">Loading…</div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="config-modal">
+  <div class="modal">
+    <h3 id="modal-title">Peer Config</h3>
+    <img id="modal-qr" src="" alt="QR" width="180" height="180" />
+    <pre id="modal-config"></pre>
+    <div class="row">
+      <button class="btn-primary" onclick="downloadConfig()">⬇ Download .conf</button>
+      <button class="btn-muted" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let API_KEY='', currentConfig='', currentPeerName='';
+
+  function login(){
+    API_KEY=document.getElementById('api-key-input').value.trim();
+    fetchStatus().then(ok=>{
+      if(ok){
+        document.getElementById('auth-section').style.display='none';
+        document.getElementById('app').style.display='block';
+        loadAll();
+      } else {
+        document.getElementById('auth-msg').innerHTML='<div class="msg err">Invalid key or server unreachable.</div>';
+      }
+    });
+  }
+  function logout(){API_KEY='';document.getElementById('auth-section').style.display='block';document.getElementById('app').style.display='none';}
+
+  async function apiFetch(path,opts={}){
+    return fetch(path,{...opts,headers:{'Content-Type':'application/json','x-api-key':API_KEY,...(opts.headers||{})}});
+  }
+
+  async function fetchStatus(){
+    try{
+      const res=await apiFetch('/api/status');
+      if(!res.ok)return false;
+      const d=await res.json();
+      document.getElementById('wg-status').textContent=d.wg||'(no output)';
+      const b=document.getElementById('status-badge');
+      b.textContent=d.ok?`UP · ${d.peerCount} peers`:'DOWN';
+      b.className='badge'+(d.ok?'':' danger');
+      return d.ok;
+    }catch{return false;}
+  }
+
+  async function loadPeers(){
+    const res=await apiFetch('/api/peers');
+    const list=await res.json();
+    const el=document.getElementById('peers-list');
+    if(!list.length){el.innerHTML='<div style="color:var(--muted);font-size:.85rem">No peers yet.</div>';return;}
+    el.innerHTML=list.map(p=>`
+      <div class="peer-row">
+        <div class="peer-info">
+          <div class="name">${p.name}</div>
+          <div class="meta">${p.ip} &nbsp;·&nbsp; ${p.pubKey.substring(0,20)}…</div>
+        </div>
+        <div class="peer-actions">
+          <button class="btn-muted" onclick="viewConfig('${p.name}')">Config</button>
+          <button class="btn-danger" onclick="removePeer('${p.name}')">Remove</button>
+        </div>
+      </div>`).join('');
+  }
+
+  function loadAll(){fetchStatus();loadPeers();}
+
+  async function addPeer(){
+    const name=document.getElementById('peer-name').value.trim();
+    const msgEl=document.getElementById('add-msg');
+    const btn=document.getElementById('add-btn');
+    if(!name){msgEl.innerHTML='<div class="msg err">Name required.</div>';return;}
+    btn.disabled=true;btn.textContent='Creating…';
+    const res=await apiFetch('/api/peers',{method:'POST',body:JSON.stringify({name})});
+    const data=await res.json();
+    btn.disabled=false;btn.textContent='+ Add Peer';
+    if(!res.ok){msgEl.innerHTML=`<div class="msg err">${data.error}</div>`;return;}
+    msgEl.innerHTML=`<div class="msg ok">Peer "${name}" created at ${data.ip}</div>`;
+    document.getElementById('peer-name').value='';
+    showModal(data.name,data.config,data.qr);
+    loadAll();
+  }
+
+  async function viewConfig(name){
+    const res=await apiFetch(`/api/peers/${name}/config`);
+    const conf=await res.text();
+    showModal(name,conf,null);
+  }
+
+  async function removePeer(name){
+    if(!confirm(`Remove peer "${name}"?`))return;
+    await apiFetch(`/api/peers/${name}`,{method:'DELETE'});
+    loadAll();
+  }
+
+  function showModal(name,config,qr){
+    currentPeerName=name;currentConfig=config;
+    document.getElementById('modal-title').textContent=`${name}.conf`;
+    document.getElementById('modal-config').textContent=config;
+    const qrEl=document.getElementById('modal-qr');
+    if(qr){qrEl.src=qr;qrEl.style.display='block';}else{qrEl.style.display='none';}
+    document.getElementById('config-modal').classList.add('open');
+  }
+
+  function closeModal(){document.getElementById('config-modal').classList.remove('open');}
+
+  function downloadConfig(){
+    const blob=new Blob([currentConfig],{type:'text/plain'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);a.download=`${currentPeerName}.conf`;a.click();
+  }
+
+  document.getElementById('api-key-input').addEventListener('keydown',e=>{if(e.key==='Enter')login();});
+</script>
+</body>
+</html>
