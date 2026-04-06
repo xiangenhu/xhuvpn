@@ -45,6 +45,14 @@ const secretCache = {};
 
 async function getSecret(name) {
   if (secretCache[name]) return secretCache[name];
+
+  // Allow local overrides via env vars (e.g. LOCAL_SECRET_vpn_api_secret)
+  const envKey = `LOCAL_SECRET_${name.replace(/-/g, '_')}`;
+  if (process.env[envKey]) {
+    secretCache[name] = process.env[envKey];
+    return secretCache[name];
+  }
+
   const [version] = await secrets.accessSecretVersion({
     name: `projects/${GCP_PROJECT}/secrets/${name}/versions/latest`
   });
@@ -268,8 +276,16 @@ app.get('/api/peers/:name/config', auth, async (req, res) => {
   res.send(conf);
 });
 
-// Health check (Cloud Run requirement)
-app.get('/health', (req, res) => res.json({ ok: true }));
+// Health check (Cloud Run requirement) — verifies GCS bucket is reachable
+app.get('/health', async (req, res) => {
+  try {
+    const [exists] = await storage.bucket(GCS_BUCKET).exists();
+    if (!exists) return res.status(503).json({ ok: false, error: 'GCS bucket not found' });
+    res.json({ ok: true, gcs: 'reachable' });
+  } catch (e) {
+    res.status(503).json({ ok: false, error: `GCS check failed: ${e.message}` });
+  }
+});
 
 // ── Start ──────────────────────────────────────────────────────────────────
 app.listen(API_PORT, '0.0.0.0', () => {

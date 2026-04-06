@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "socraticplayground",
+  "private_key_id": "d8c050b5a9d887145810b5ee07b49c67ac0c2009",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCc8mo1qoYH3YIR\nqKM90rJhG9IdtLy+ndbiJHQKUB97gzr44qnf+ImDAFjX3nbLqAkIdlw4Y/VnC4H6\nz1JkQJ6R1O+x9C/01oSDRDwAVk1XV/AJd5Y00GEY9VpeNugJRdt9rHPXf+KxFHU5\nAz3Dr0aVo6JqLhdaUuEVXs1/roZJXB2jTlQJJ7Q53m2qlhhVbwxaKzSVaK/TYwvY\n+U4m19CDALA5L1XlyMXSSc2wnQeopECGuzlr3mXGDh5y+kg3FDJXV/uKfo6VwIzM\nQd0vk6HCHhBqDiUt/qmh2mOpD7UnZmx2oQWLkmZCHGvGo6YyELjly9ICx+cXo/od\nhJH/bt3fAgMBAAECggEAIrb8ByLQwqycOIu0j9gq3I/qyedQWFlRTnQBtsZCMG+2\ne5anPIMc530MKbNrU2C3nsePXmm9vi0tcuyorMQeTuNqoVIByYYpiV9uZiSwtsEc\ntvtcnhH5aCvc8Tnz2Rk6k3Gxrdj7q296/kFZSA9c7XxkUFghkjkC0FdH3RYdXdxJ\nhX9K+yLlM9sALtoI0W/O8MyFTdI2OWiMs/qODAn6UZERSVD9iX58hFhNuvdFwMVH\nrQfA9BEIcOQ4f11l4A8MEYSpUNLJX+MvgzUwpnVoTWwn7K0oILoFb3uKq3upoPj/\nDsg+3HWMpLnGMK7ATPtvMEdQGKOSiXGkcmxv/sPcAQKBgQDIk+e7tmDKk5wDBxa9\n4ulmc5N7ERQ6ahKo5iEvEJYzt1m4B7NatgLgq1Az7BT08q0xKc1VDTZMAPO7c96a\nzIGhMZn39Ad3w6qfUykRFTYP0l6awEJ3RrkDck3+BXFg8CZXv2tIu4tENPnEk/om\nCbEtaYL8MqTsmttzJoD0vmdRrwKBgQDIUDvrfpyFyUsayFUdxtr5hyrUvh9ECmUw\nJiRghkqKylImoec7tTY/hYw2h/mmWRcfbZxEg6MThQVPuBTNrFJ+fQplihnyUrYm\nb/jMvrV35BWL1F9fq+V4PjltbUFGtls0ykuJTbCCORn7yAypfKbRWouDTmBhHBLg\nv1WDoC8y0QKBgQCxoUKtG4O2g2i7ybBbM7QNljc62tI2NTAXQc6Ldr3+SNb8wl0U\n7XG49B5QDTg2ASBeFK4SL2QxhPpUvPWb05bNYTcAvq1KZA8bkDMjPMym0GAV3kQ+\ni3RX2Ae3+awB9EuQlCX3wJdCLUQw0ffLbfPpyrJElLk4DKBh5ux3UpP/YwKBgDik\nl40MDG64cQhtxcPZy2nsEux9ppGy7tIitv6kesesVnaeKaj0oRZtSSzSXoHvh15X\nvGyTXLXUU6ArSZavN9SUvy/fUV74jJFp8EzVULNKR912fFGtZgIOdma/EkpQnpHa\n8mktEtCAHRzZgNscaH+ivviuXQqYya3L7P5/eVlBAoGAO50889XNp6e7F45vKRA9\nc4V8Igr7r+YP7P9hX0DewrhNQ/PS6RCFlb71sbbWlsH186D/N5DAXHS9t7r/wTgy\nHKkSsCp4b9BkOxlFlhkjDEU9cgf8Hj/aiM89mbdoaV906sT2BZgh2uewTEoSS9wy\nxunROTe3PALuAqr+BzKCKWo=\n-----END PRIVATE KEY-----\n",
+  "client_email": "uals-410@socraticplayground.iam.gserviceaccount.com",
+  "client_id": "114849856859192307819",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/uals-410%40socraticplayground.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
