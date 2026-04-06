@@ -26,7 +26,8 @@
     ],
     "win": {
       "target": [
-        "nsis"
+        "nsis",
+        "msi"
       ],
       "icon": "assets/icon.ico"
     },
