@@ -276,6 +276,49 @@ app.get('/api/peers/:name/config', auth, async (req, res) => {
   res.send(conf);
 });
 
+// GET /api/download/app — serve the desktop app installer (from GCS)
+app.get('/api/download/app', auth, async (req, res) => {
+  try {
+    const bucket = storage.bucket(GCS_BUCKET);
+    // Look for installer files in GCS bucket under "releases/" prefix
+    const [files] = await bucket.getFiles({ prefix: 'releases/' });
+    if (!files.length) return res.status(404).json({ error: 'No installer available' });
+
+    // Pick the most recently uploaded file
+    const latest = files.sort((a, b) =>
+      new Date(b.metadata.updated) - new Date(a.metadata.updated)
+    )[0];
+
+    const fileName = path.basename(latest.name);
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Content-Type', 'application/octet-stream');
+    latest.createReadStream().pipe(res);
+  } catch (e) {
+    res.status(500).json({ error: `Download failed: ${e.message}` });
+  }
+});
+
+// GET /api/download/app/info — check if an installer is available
+app.get('/api/download/app/info', auth, async (req, res) => {
+  try {
+    const [files] = await storage.bucket(GCS_BUCKET).getFiles({ prefix: 'releases/' });
+    if (!files.length) return res.json({ available: false });
+
+    const latest = files.sort((a, b) =>
+      new Date(b.metadata.updated) - new Date(a.metadata.updated)
+    )[0];
+
+    res.json({
+      available: true,
+      fileName: path.basename(latest.name),
+      size: latest.metadata.size,
+      updated: latest.metadata.updated,
+    });
+  } catch (e) {
+    res.json({ available: false });
+  }
+});
+
 // Health check (Cloud Run requirement) — verifies GCS bucket is reachable
 app.get('/health', async (req, res) => {
   try {

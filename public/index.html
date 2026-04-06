@@ -60,7 +60,8 @@
   <header>
     <h1>VPN Manager</h1>
     <span class="badge" id="status-badge">checking...</span>
-    <button class="btn-muted" style="margin-left:auto;font-size:.75rem" onclick="logout()">Logout</button>
+    <button class="btn-primary" id="download-app-btn" style="margin-left:auto;font-size:.75rem;display:none" onclick="downloadApp()">&#11015; Desktop App</button>
+    <button class="btn-muted" style="font-size:.75rem" onclick="logout()">Logout</button>
   </header>
 
   <div class="section">
@@ -147,7 +148,25 @@
       </div>`).join('');
   }
 
-  function loadAll(){fetchStatus();loadPeers();}
+  function loadAll(){fetchStatus();loadPeers();checkAppDownload();}
+
+  async function checkAppDownload(){
+    try{
+      const res=await apiFetch('/api/download/app/info');
+      const d=await res.json();
+      const btn=document.getElementById('download-app-btn');
+      if(d.available){
+        btn.style.display='';
+        btn.title=d.fileName+' ('+Math.round(d.size/1024/1024)+'MB)';
+      }
+    }catch{}
+  }
+
+  function downloadApp(){
+    const a=document.createElement('a');
+    a.href='/api/download/app?key='+encodeURIComponent(API_KEY);
+    a.click();
+  }
 
   async function addPeer(){
     const name=document.getElementById('peer-name').value.trim();
