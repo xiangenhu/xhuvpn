@@ -1,0 +1,54 @@
+name: Build Desktop Installer
+
+on:
+  push:
+    paths:
+      - 'wireguard-app/**'
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        working-directory: wireguard-app
+        run: npm install
+
+      - name: Build Windows installer
+        working-directory: wireguard-app
+        run: npx electron-builder --win --x64
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: |
+            wireguard-app/dist/*.exe
+            wireguard-app/dist/*.msi
+
+      - name: Create or update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: WireGuard Manager (Latest)
+          body: |
+            Download and run the installer. The app comes pre-configured — just open it and connect.
+
+            **Windows:** Download the `.exe` file below.
+            **iPhone/Android:** Use the official [WireGuard app](https://www.wireguard.com/install/).
+          files: |
+            wireguard-app/dist/*.exe
+            wireguard-app/dist/*.msi
+          draft: false
+          prerelease: false
+          make_latest: true
