@@ -8,6 +8,15 @@ const store = new Store({ name: 'tunnels' });
 const isWin = process.platform === 'win32';
 const isMac = process.platform === 'darwin';
 
+// ── Built-in server config (baked in at build time) ───────────────────────
+const builtinConfig = JSON.parse(
+  fs.readFileSync(path.join(__dirname, 'config.json'), 'utf-8')
+);
+// Seed store with built-in config if not already set
+if (!store.get('server')) {
+  store.set('server', { url: builtinConfig.serverUrl, apiKey: builtinConfig.apiKey });
+}
+
 let mainWindow;
 let tray;
 let statusInterval;

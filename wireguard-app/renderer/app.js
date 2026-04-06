@@ -322,4 +322,20 @@ wg.onUpdate(async () => {
 
 // ── Init ──────────────────────────────────────────────────────────────────
 
-loadTunnels();
+async function init() {
+  await loadTunnels();
+  // Auto-fetch peers from server on first launch if no tunnels exist
+  if (tunnels.length === 0) {
+    try {
+      const peers = await wg.fetchServerPeers();
+      for (const p of peers) {
+        try {
+          tunnels = await wg.fetchServerConfig(p.name);
+        } catch {}
+      }
+      render();
+    } catch {}
+  }
+}
+
+init();
