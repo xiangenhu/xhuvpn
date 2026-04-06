@@ -24,6 +24,10 @@ jobs:
         working-directory: wireguard-app
         run: npm install
 
+      - name: Generate proper ICO from PNG
+        working-directory: wireguard-app
+        run: npx --yes png-to-ico assets/icon.png > assets/icon.ico
+
       - name: Build Windows installer
         working-directory: wireguard-app
         run: npx electron-builder --win --x64
