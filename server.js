@@ -162,8 +162,8 @@ AllowedIPs = ${p.ip}/32`).join('\n');
 Address    = ${VPN_SUBNET}.1/24
 ListenPort = ${SERVER_PORT}
 PrivateKey = ${serverPrivKey}
-PostUp     = iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-PostDown   = iptables -D FORWARD -i %i -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+PostUp     = iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o ens4 -j MASQUERADE
+PostDown   = iptables -D FORWARD -i %i -j ACCEPT; iptables -t nat -D POSTROUTING -o ens4 -j MASQUERADE
 ${peerBlocks}
 `;
 }
@@ -177,7 +177,7 @@ DNS        = 1.1.1.1, 8.8.8.8
 [Peer]
 PublicKey  = ${serverPubKey}
 Endpoint   = ${SERVER_ENDPOINT}:${SERVER_PORT}
-AllowedIPs = 0.0.0.0/0, ::/0
+AllowedIPs = ${VPN_SUBNET}.0/24
 PersistentKeepalive = 25
 `;
 }
