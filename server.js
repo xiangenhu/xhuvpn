@@ -177,7 +177,7 @@ DNS        = 1.1.1.1, 8.8.8.8
 [Peer]
 PublicKey  = ${serverPubKey}
 Endpoint   = ${SERVER_ENDPOINT}:${SERVER_PORT}
-AllowedIPs = ${VPN_SUBNET}.0/24
+AllowedIPs = 0.0.0.0/1, 128.0.0.0/1, ::/1, 8000::/1
 PersistentKeepalive = 25
 `;
 }
