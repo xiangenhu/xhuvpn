@@ -98,11 +98,10 @@
 
   <div class="auth-tabs">
     <div class="auth-tab active" onclick="showAuthTab('login')">Login</div>
-    <div class="auth-tab" onclick="showAuthTab('register')">Register</div>
     <div class="auth-tab" onclick="showAuthTab('admin')">Admin</div>
   </div>
 
-  <!-- Login form -->
+  <!-- Login form (auto-registers if user doesn't exist) -->
   <div id="form-login" class="auth-form active">
     <button class="btn-google" onclick="googleLogin()">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
@@ -122,24 +121,6 @@
       <span class="form-link" onclick="showAuthTab('forgot')">Forgot password?</span>
     </div>
     <div id="login-msg"></div>
-  </div>
-
-  <!-- Register form -->
-  <div id="form-register" class="auth-form">
-    <div class="form-field">
-      <label>Name</label>
-      <input type="text" id="reg-name" placeholder="Your name">
-    </div>
-    <div class="form-field">
-      <label>Email</label>
-      <input type="email" id="reg-email" placeholder="you@example.com">
-    </div>
-    <div class="form-field">
-      <label>Password</label>
-      <input type="password" id="reg-password" placeholder="Choose a password">
-    </div>
-    <button class="btn-primary" style="width:100%" onclick="register()">Create Account</button>
-    <div id="reg-msg"></div>
   </div>
 
   <!-- Verify form -->
@@ -277,6 +258,7 @@
   let currentUser = null;
   let currentConfig = '', currentPeerName = '';
   let pendingEmail = ''; // for verify/reset flows
+  let pendingPassword = ''; // for auto-login after verify
 
   // ── Auth tab switching ──────────────────────────────────────────────
 
@@ -310,7 +292,7 @@
     }
   })();
 
-  // ── Email/password login ────────────────────────────────────────────
+  // ── Email/password login (auto-registers if user doesn't exist) ─────
 
   async function emailLogin() {
     const email = document.getElementById('login-email').value.trim();
@@ -318,47 +300,46 @@
     if (!email || !password) return showMsg('login-msg', 'err', 'Email and password required.');
 
     try {
+      // Try login first
       const res = await fetch(OAUTH + '/user/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
       const data = await res.json();
-      if (!res.ok) return showMsg('login-msg', 'err', data.error || 'Login failed');
 
-      authToken = data.token;
-      authType = 'user';
-      currentUser = data.user;
-      localStorage.setItem('vpn_token', authToken);
-      localStorage.setItem('vpn_auth_type', 'user');
-      enterApp();
+      if (res.ok) {
+        authToken = data.token;
+        authType = 'user';
+        currentUser = data.user;
+        localStorage.setItem('vpn_token', authToken);
+        localStorage.setItem('vpn_auth_type', 'user');
+        enterApp();
+        return;
+      }
+
+      // If user not found, auto-register
+      const errMsg = (data.error || '').toLowerCase();
+      if (errMsg.includes('not found') || errMsg.includes('no user') || errMsg.includes('does not exist') || res.status === 404) {
+        showMsg('login-msg', 'ok', 'Creating your account...');
+        const regRes = await fetch(OAUTH + '/user/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, name: email.split('@')[0] }),
+        });
+        const regData = await regRes.json();
+        if (!regRes.ok) return showMsg('login-msg', 'err', regData.error || 'Registration failed');
+
+        pendingEmail = email;
+        pendingPassword = password;
+        showMsg('login-msg', 'ok', 'Verification code sent to your email.');
+        showAuthTab('verify');
+        return;
+      }
+
+      showMsg('login-msg', 'err', data.error || 'Login failed');
     } catch (e) {
       showMsg('login-msg', 'err', 'Connection failed');
-    }
-  }
-
-  // ── Registration ────────────────────────────────────────────────────
-
-  async function register() {
-    const name = document.getElementById('reg-name').value.trim();
-    const email = document.getElementById('reg-email').value.trim();
-    const password = document.getElementById('reg-password').value;
-    if (!name || !email || !password) return showMsg('reg-msg', 'err', 'All fields required.');
-
-    try {
-      const res = await fetch(OAUTH + '/user/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, name }),
-      });
-      const data = await res.json();
-      if (!res.ok) return showMsg('reg-msg', 'err', data.error || 'Registration failed');
-
-      pendingEmail = email;
-      showMsg('reg-msg', 'ok', 'Verification code sent to your email.');
-      showAuthTab('verify');
-    } catch (e) {
-      showMsg('reg-msg', 'err', 'Connection failed');
     }
   }
 
@@ -656,11 +637,13 @@
   // ── Enter key support ──────────────────────────────────────────────
 
   document.getElementById('login-password').addEventListener('keydown', e => { if (e.key === 'Enter') emailLogin(); });
-  document.getElementById('reg-password').addEventListener('keydown', e => { if (e.key === 'Enter') register(); });
   document.getElementById('verify-code').addEventListener('keydown', e => { if (e.key === 'Enter') verify(); });
   document.getElementById('api-key-input').addEventListener('keydown', e => { if (e.key === 'Enter') adminLogin(); });
   document.getElementById('forgot-email').addEventListener('keydown', e => { if (e.key === 'Enter') forgotPassword(); });
   document.getElementById('reset-password').addEventListener('keydown', e => { if (e.key === 'Enter') resetPassword(); });
 </script>
+<footer style="text-align:center;padding:2rem 1rem 1rem;color:var(--muted);font-size:.75rem">
+  This VPN is created by Xiangen Hu for his colleagues.
+</footer>
 </body>
 </html>
