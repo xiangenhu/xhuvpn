@@ -349,7 +349,7 @@ app.get('/api/peers/:name/config', auth, async (req, res) => {
 // Platforms: exe, msi, dmg, appimage, deb, ios, android
 // Files are stored in GCS under releases/ (e.g. releases/WireGuard Manager Setup 1.0.2.exe)
 // Also supports hosting WireGuard mobile APK/IPA under releases/ for users behind firewalls
-app.get('/api/download/:platform', auth, async (req, res) => {
+app.get(['/api/download/:platform', '/i/download/:platform'], auth, async (req, res) => {
   const platform = req.params.platform.toLowerCase();
 
   // Map platform to file extension patterns
@@ -387,7 +387,7 @@ app.get('/api/download/:platform', auth, async (req, res) => {
 });
 
 // GET /api/download — list all available installers
-app.get('/api/download', auth, async (req, res) => {
+app.get(['/api/download', '/i/download'], auth, async (req, res) => {
   try {
     const [files] = await storage.bucket(GCS_BUCKET).getFiles({ prefix: 'releases/' });
     const installers = files.map(f => ({
