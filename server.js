@@ -210,10 +210,12 @@ async function auth(req, res, next) {
       }
     }
 
-    // Try Bearer token (user via OAuth gateway)
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.slice(7);
+    // Try Bearer token (user via OAuth gateway) — header or ?token= query param
+    const bearerToken = (req.headers.authorization && req.headers.authorization.startsWith('Bearer '))
+      ? req.headers.authorization.slice(7)
+      : req.query.token;
+    if (bearerToken) {
+      const token = bearerToken;
       const userRes = await fetch(`${OAUTH_GATEWAY}/auth/userinfo`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -343,46 +345,59 @@ app.get('/api/peers/:name/config', auth, async (req, res) => {
   res.send(conf);
 });
 
-// GET /api/download/app — serve the desktop app installer (from GCS)
-app.get('/api/download/app', auth, async (req, res) => {
+// GET /api/download/:platform — serve installers from GCS releases/ folder
+// Platforms: exe, msi, dmg, appimage, deb, ios, android
+// Files are stored in GCS under releases/ (e.g. releases/WireGuard Manager Setup 1.0.2.exe)
+// Also supports hosting WireGuard mobile APK/IPA under releases/ for users behind firewalls
+app.get('/api/download/:platform', auth, async (req, res) => {
+  const platform = req.params.platform.toLowerCase();
+
+  // Map platform to file extension patterns
+  const extMap = {
+    exe: ['.exe'],
+    msi: ['.msi'],
+    dmg: ['.dmg'],
+    appimage: ['.appimage'],
+    deb: ['.deb'],
+    ios: ['.ipa'],
+    android: ['.apk'],
+  };
+
+  const exts = extMap[platform];
+  if (!exts) return res.status(400).json({ error: 'Unknown platform. Use: exe, msi, dmg, ios, android' });
+
   try {
-    const bucket = storage.bucket(GCS_BUCKET);
-    // Look for installer files in GCS bucket under "releases/" prefix
-    const [files] = await bucket.getFiles({ prefix: 'releases/' });
-    if (!files.length) return res.status(404).json({ error: 'No installer available' });
+    const [files] = await storage.bucket(GCS_BUCKET).getFiles({ prefix: 'releases/' });
+    // Find matching files by extension
+    const matches = files.filter(f => {
+      const name = f.name.toLowerCase();
+      return exts.some(ext => name.endsWith(ext));
+    }).sort((a, b) => new Date(b.metadata.updated) - new Date(a.metadata.updated));
 
-    // Pick the most recently uploaded file
-    const latest = files.sort((a, b) =>
-      new Date(b.metadata.updated) - new Date(a.metadata.updated)
-    )[0];
+    if (!matches.length) return res.status(404).json({ error: `No ${platform} installer available` });
 
-    const fileName = path.basename(latest.name);
+    const file = matches[0];
+    const fileName = path.basename(file.name);
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     res.setHeader('Content-Type', 'application/octet-stream');
-    latest.createReadStream().pipe(res);
+    file.createReadStream().pipe(res);
   } catch (e) {
     res.status(500).json({ error: `Download failed: ${e.message}` });
   }
 });
 
-// GET /api/download/app/info — check if an installer is available
-app.get('/api/download/app/info', auth, async (req, res) => {
+// GET /api/download — list all available installers
+app.get('/api/download', auth, async (req, res) => {
   try {
     const [files] = await storage.bucket(GCS_BUCKET).getFiles({ prefix: 'releases/' });
-    if (!files.length) return res.json({ available: false });
-
-    const latest = files.sort((a, b) =>
-      new Date(b.metadata.updated) - new Date(a.metadata.updated)
-    )[0];
-
-    res.json({
-      available: true,
-      fileName: path.basename(latest.name),
-      size: latest.metadata.size,
-      updated: latest.metadata.updated,
-    });
+    const installers = files.map(f => ({
+      name: path.basename(f.name),
+      size: f.metadata.size,
+      updated: f.metadata.updated,
+    }));
+    res.json({ installers });
   } catch (e) {
-    res.json({ available: false });
+    res.json({ installers: [] });
   }
 });
 

@@ -207,22 +207,22 @@
   <div class="section">
     <h2>Get WireGuard App</h2>
     <div class="downloads-grid">
-      <a class="dl-card" href="https://github.com/xiangenhu/xhuvpn/releases/latest" target="_blank" rel="noopener">
+      <a class="dl-card" href="#" onclick="downloadApp('exe');return false">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 12V6.75l6-1.32v6.48L3 12zm6.27.09l8.73.01V5.28l-8.73 1.56V12.09zM3 13l6 .09v6.81l-6-1.08V13zm6.27-.01v6.82l8.73 1.47V13.01l-8.73-.02z"/></svg>
         <span class="dl-label">Windows</span>
         <span class="dl-hint">Download .exe</span>
       </a>
-      <a class="dl-card" href="https://apps.apple.com/app/wireguard/id1441195209" target="_blank" rel="noopener">
+      <a class="dl-card" href="#" onclick="downloadApp('ios');return false">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
         <span class="dl-label">iPhone</span>
-        <span class="dl-hint">App Store</span>
+        <span class="dl-hint">WireGuard App</span>
       </a>
-      <a class="dl-card" href="https://play.google.com/store/apps/details?id=com.wireguard.android" target="_blank" rel="noopener">
+      <a class="dl-card" href="#" onclick="downloadApp('android');return false">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3.18 23.77L14.27 12 3.18.23C2.8.61 2.56 1.17 2.56 1.86v20.28c0 .69.24 1.25.62 1.63zm1.16 1.12l12.78-7.38-2.83-2.83-9.95 10.21zm0-25.78l9.95 10.21 2.83-2.83L4.34.9zM21.44 10.96l-3.59-2.07-3.12 3.11 3.12 3.11 3.59-2.07c.6-.34.6-1.74 0-2.08z"/></svg>
         <span class="dl-label">Android</span>
-        <span class="dl-hint">Play Store</span>
+        <span class="dl-hint">WireGuard App</span>
       </a>
-      <a class="dl-card" href="https://github.com/xiangenhu/xhuvpn/releases/latest" target="_blank" rel="noopener">
+      <a class="dl-card" href="#" onclick="downloadApp('dmg');return false">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
         <span class="dl-label">macOS</span>
         <span class="dl-hint">Download .dmg</span>
@@ -606,6 +606,43 @@
     const blob = new Blob([currentConfig], { type: 'text/plain' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob); a.download = `${currentPeerName}.conf`; a.click();
+  }
+
+  function downloadApp(platform) {
+    // For mobile, try server-hosted copy first, fall back to app store
+    const fallbacks = {
+      ios: 'https://apps.apple.com/app/wireguard/id1441195209',
+      android: 'https://play.google.com/store/apps/details?id=com.wireguard.android',
+    };
+
+    // Build auth query param
+    const authParam = authType === 'admin'
+      ? 'key=' + encodeURIComponent(authToken)
+      : 'token=' + encodeURIComponent(authToken);
+
+    // Try downloading from our server
+    const url = '/api/download/' + platform + '?' + authParam;
+
+    // For desktop, just download directly
+    if (!fallbacks[platform]) {
+      const a = document.createElement('a');
+      a.href = url;
+      a.click();
+      return;
+    }
+
+    // For mobile, check if we host the file, otherwise redirect to store
+    fetch('/api/download/' + platform + '?' + authParam, { method: 'HEAD' })
+      .then(res => {
+        if (res.ok) {
+          const a = document.createElement('a');
+          a.href = url;
+          a.click();
+        } else {
+          window.open(fallbacks[platform], '_blank');
+        }
+      })
+      .catch(() => window.open(fallbacks[platform], '_blank'));
   }
 
   function copyConfig() {
