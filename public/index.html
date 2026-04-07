@@ -22,14 +22,16 @@
     .card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1.2rem;margin-bottom:.8rem}
     .card pre{font-family:var(--mono);font-size:.75rem;color:var(--accent);white-space:pre-wrap;word-break:break-all}
     .row{display:flex;align-items:center;gap:.8rem;flex-wrap:wrap}
-    input[type=text]{background:#0d1829;border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:.85rem;padding:.5rem .8rem;outline:none;flex:1;min-width:160px}
-    input[type=text]:focus{border-color:var(--accent)}
+    input[type=text],input[type=email]{background:#0d1829;border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:.85rem;padding:.5rem .8rem;outline:none;flex:1;min-width:160px}
+    input[type=text]:focus,input[type=email]:focus{border-color:var(--accent)}
     input[type=password]{background:#0d1829;border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:.85rem;padding:.5rem .8rem;outline:none;width:100%;margin-bottom:.8rem}
+    input[type=password]:focus{border-color:var(--accent)}
     button{font-family:var(--sans);font-size:.85rem;font-weight:600;padding:.5rem 1.2rem;border-radius:6px;border:none;cursor:pointer;transition:opacity .15s}
     button:hover{opacity:.85} button:disabled{opacity:.4;cursor:not-allowed}
     .btn-primary{background:var(--accent);color:#000}
     .btn-danger{background:var(--danger);color:#fff}
     .btn-muted{background:var(--border);color:var(--text)}
+    .btn-google{background:#4285f4;color:#fff;display:flex;align-items:center;gap:.5rem;justify-content:center;width:100%;margin-bottom:.8rem;padding:.6rem}
     .peer-row{display:flex;justify-content:space-between;align-items:center;padding:.8rem 1rem;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:.5rem}
     .peer-info .name{font-weight:600;font-size:.95rem}
     .peer-info .meta{font-family:var(--mono);font-size:.72rem;color:var(--muted);margin-top:.2rem}
@@ -43,9 +45,29 @@
     .msg{padding:.6rem 1rem;border-radius:6px;font-size:.85rem;margin-top:.5rem}
     .msg.ok{background:#052e16;color:#4ade80;border:1px solid #166534}
     .msg.err{background:#2d0a0a;color:#f87171;border:1px solid #7f1d1d}
-    #auth-section{max-width:400px;margin:4rem auto}
-    #auth-section h2{margin-bottom:1rem;font-size:1.1rem}
+
+    /* Auth section */
+    .auth-container{max-width:400px;margin:4rem auto}
+    .auth-container h2{margin-bottom:.5rem;font-size:1.2rem}
+    .auth-container .subtitle{color:var(--muted);font-size:.85rem;margin-bottom:1.5rem}
+    .auth-tabs{display:flex;gap:0;margin-bottom:1.5rem;border-bottom:1px solid var(--border)}
+    .auth-tab{padding:.6rem 1.2rem;cursor:pointer;color:var(--muted);font-weight:600;font-size:.85rem;border-bottom:2px solid transparent;transition:all .15s}
+    .auth-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+    .auth-tab:hover{color:var(--text)}
+    .auth-form{display:none}
+    .auth-form.active{display:block}
+    .form-field{margin-bottom:.8rem}
+    .form-field label{display:block;font-size:.75rem;color:var(--muted);margin-bottom:.3rem;text-transform:uppercase;letter-spacing:.05em}
+    .form-field input{width:100%;margin-bottom:0}
+    .form-link{color:var(--accent);cursor:pointer;font-size:.8rem;text-decoration:none}
+    .form-link:hover{text-decoration:underline}
+    .divider{display:flex;align-items:center;gap:.8rem;margin:1rem 0;color:var(--muted);font-size:.75rem}
+    .divider::before,.divider::after{content:'';flex:1;border-top:1px solid var(--border)}
+    .user-info{font-size:.8rem;color:var(--muted)}
+    .user-info strong{color:var(--text)}
     #app{display:none}
+
+    /* Downloads */
     .downloads-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.6rem}
     .dl-card{display:flex;flex-direction:column;align-items:center;gap:.5rem;padding:1rem;background:var(--surface);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text);transition:border-color .15s,background .15s;cursor:pointer}
     .dl-card:hover{border-color:var(--accent);background:#0d1829}
@@ -54,7 +76,7 @@
     .dl-card .dl-hint{font-size:.65rem;color:var(--muted)}
     .modal-qr-section{text-align:center;margin-bottom:1rem}
     .modal-qr-section p{font-size:.75rem;color:var(--muted);margin-top:.4rem}
-    .modal-actions-mobile{display:none}
+
     @media(max-width:600px){
       body{padding:1rem}
       header{flex-wrap:wrap;gap:.5rem}
@@ -63,27 +85,126 @@
       .peer-actions{width:100%}
       .peer-actions button{flex:1}
       .modal{margin:1rem;max-width:calc(100vw - 2rem)}
-      .modal-actions-mobile{display:flex;gap:.5rem;margin-top:.5rem}
       .downloads-grid{grid-template-columns:1fr 1fr}
     }
   </style>
 </head>
 <body>
-<div id="auth-section">
+
+<!-- ── Auth Section ──────────────────────────────────────────────────── -->
+<div id="auth-section" class="auth-container">
   <h2>VPN Manager</h2>
-  <input type="password" id="api-key-input" placeholder="Enter API secret..." />
-  <button class="btn-primary" onclick="login()">Unlock</button>
-  <div id="auth-msg"></div>
+  <p class="subtitle">Sign in to manage your VPN connections</p>
+
+  <div class="auth-tabs">
+    <div class="auth-tab active" onclick="showAuthTab('login')">Login</div>
+    <div class="auth-tab" onclick="showAuthTab('register')">Register</div>
+    <div class="auth-tab" onclick="showAuthTab('admin')">Admin</div>
+  </div>
+
+  <!-- Login form -->
+  <div id="form-login" class="auth-form active">
+    <button class="btn-google" onclick="googleLogin()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+      Sign in with Google
+    </button>
+    <div class="divider">or email</div>
+    <div class="form-field">
+      <label>Email</label>
+      <input type="email" id="login-email" placeholder="you@example.com">
+    </div>
+    <div class="form-field">
+      <label>Password</label>
+      <input type="password" id="login-password" placeholder="Your password">
+    </div>
+    <button class="btn-primary" style="width:100%;margin-top:.5rem" onclick="emailLogin()">Sign In</button>
+    <div style="margin-top:.8rem;text-align:center">
+      <span class="form-link" onclick="showAuthTab('forgot')">Forgot password?</span>
+    </div>
+    <div id="login-msg"></div>
+  </div>
+
+  <!-- Register form -->
+  <div id="form-register" class="auth-form">
+    <div class="form-field">
+      <label>Name</label>
+      <input type="text" id="reg-name" placeholder="Your name">
+    </div>
+    <div class="form-field">
+      <label>Email</label>
+      <input type="email" id="reg-email" placeholder="you@example.com">
+    </div>
+    <div class="form-field">
+      <label>Password</label>
+      <input type="password" id="reg-password" placeholder="Choose a password">
+    </div>
+    <button class="btn-primary" style="width:100%" onclick="register()">Create Account</button>
+    <div id="reg-msg"></div>
+  </div>
+
+  <!-- Verify form -->
+  <div id="form-verify" class="auth-form">
+    <p style="margin-bottom:1rem;font-size:.9rem">Check your email for a 6-digit verification code.</p>
+    <div class="form-field">
+      <label>Verification Code</label>
+      <input type="text" id="verify-code" placeholder="123456" maxlength="6">
+    </div>
+    <button class="btn-primary" style="width:100%" onclick="verify()">Verify Email</button>
+    <div style="margin-top:.8rem;text-align:center">
+      <span class="form-link" onclick="resendCode()">Resend code</span>
+    </div>
+    <div id="verify-msg"></div>
+  </div>
+
+  <!-- Forgot password form -->
+  <div id="form-forgot" class="auth-form">
+    <p style="margin-bottom:1rem;font-size:.9rem">Enter your email to receive a reset code.</p>
+    <div class="form-field">
+      <label>Email</label>
+      <input type="email" id="forgot-email" placeholder="you@example.com">
+    </div>
+    <button class="btn-primary" style="width:100%" onclick="forgotPassword()">Send Reset Code</button>
+    <div style="margin-top:.8rem;text-align:center">
+      <span class="form-link" onclick="showAuthTab('login')">Back to login</span>
+    </div>
+    <div id="forgot-msg"></div>
+  </div>
+
+  <!-- Reset password form -->
+  <div id="form-reset" class="auth-form">
+    <div class="form-field">
+      <label>Reset Code</label>
+      <input type="text" id="reset-code" placeholder="123456" maxlength="6">
+    </div>
+    <div class="form-field">
+      <label>New Password</label>
+      <input type="password" id="reset-password" placeholder="New password">
+    </div>
+    <button class="btn-primary" style="width:100%" onclick="resetPassword()">Reset Password</button>
+    <div id="reset-msg"></div>
+  </div>
+
+  <!-- Admin (API key) -->
+  <div id="form-admin" class="auth-form">
+    <div class="form-field">
+      <label>API Secret</label>
+      <input type="password" id="api-key-input" placeholder="Enter admin API secret...">
+    </div>
+    <button class="btn-primary" style="width:100%" onclick="adminLogin()">Unlock</button>
+    <div id="admin-msg"></div>
+  </div>
 </div>
 
+<!-- ── Main App ──────────────────────────────────────────────────────── -->
 <div id="app">
   <header>
     <h1>VPN Manager</h1>
     <span class="badge" id="status-badge">checking...</span>
-    <button class="btn-muted" style="margin-left:auto;font-size:.75rem" onclick="logout()">Logout</button>
+    <span class="user-info" id="user-info" style="margin-left:auto"></span>
+    <button class="btn-muted" style="font-size:.75rem" onclick="logout()">Logout</button>
   </header>
 
-  <div class="section">
+  <div class="section" id="admin-status" style="display:none">
     <h2>Server Status</h2>
     <div class="card"><pre id="wg-status">Loading...</pre></div>
   </div>
@@ -91,14 +212,14 @@
   <div class="section">
     <h2>Add Peer</h2>
     <div class="row">
-      <input type="text" id="peer-name" placeholder="peer name (e.g. alice-laptop)" />
+      <input type="text" id="peer-name" placeholder="peer name (e.g. my-laptop)" />
       <button class="btn-primary" id="add-btn" onclick="addPeer()">+ Add Peer</button>
     </div>
     <div id="add-msg"></div>
   </div>
 
   <div class="section">
-    <h2>Peers</h2>
+    <h2>My Peers</h2>
     <div id="peers-list">Loading...</div>
   </div>
 
@@ -132,6 +253,7 @@
   </div>
 </div>
 
+<!-- ── Config Modal ──────────────────────────────────────────────────── -->
 <div class="modal-overlay" id="config-modal">
   <div class="modal">
     <h3 id="modal-title">Peer Config</h3>
@@ -149,49 +271,305 @@
 </div>
 
 <script>
-  let API_KEY='', currentConfig='', currentPeerName='';
+  const OAUTH = 'https://oauth.xiangenhu.info';
+  let authToken = '';    // JWT or API key
+  let authType = '';     // 'user', 'admin', or 'google'
+  let currentUser = null;
+  let currentConfig = '', currentPeerName = '';
+  let pendingEmail = ''; // for verify/reset flows
 
-  function login(){
-    API_KEY=document.getElementById('api-key-input').value.trim();
-    fetchStatus().then(ok=>{
-      if(ok){
-        document.getElementById('auth-section').style.display='none';
-        document.getElementById('app').style.display='block';
-        loadAll();
-      } else {
-        document.getElementById('auth-msg').innerHTML='<div class="msg err">Invalid key or server unreachable.</div>';
+  // ── Auth tab switching ──────────────────────────────────────────────
+
+  function showAuthTab(tab) {
+    document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
+    document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+    const form = document.getElementById('form-' + tab);
+    if (form) form.classList.add('active');
+    const tabEl = [...document.querySelectorAll('.auth-tab')].find(t => t.textContent.toLowerCase() === tab);
+    if (tabEl) tabEl.classList.add('active');
+  }
+
+  // ── Google OAuth login ──────────────────────────────────────────────
+
+  function googleLogin() {
+    const redirect = window.location.origin + window.location.pathname;
+    window.location.href = OAUTH + '/auth/google/login?redirect_uri=' + encodeURIComponent(redirect);
+  }
+
+  // Handle OAuth redirect (token in URL)
+  (function handleOAuthRedirect() {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    if (token) {
+      window.history.replaceState({}, '', window.location.pathname);
+      authToken = token;
+      authType = 'google';
+      localStorage.setItem('vpn_token', token);
+      localStorage.setItem('vpn_auth_type', 'google');
+      enterApp();
+    }
+  })();
+
+  // ── Email/password login ────────────────────────────────────────────
+
+  async function emailLogin() {
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    if (!email || !password) return showMsg('login-msg', 'err', 'Email and password required.');
+
+    try {
+      const res = await fetch(OAUTH + '/user/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) return showMsg('login-msg', 'err', data.error || 'Login failed');
+
+      authToken = data.token;
+      authType = 'user';
+      currentUser = data.user;
+      localStorage.setItem('vpn_token', authToken);
+      localStorage.setItem('vpn_auth_type', 'user');
+      enterApp();
+    } catch (e) {
+      showMsg('login-msg', 'err', 'Connection failed');
+    }
+  }
+
+  // ── Registration ────────────────────────────────────────────────────
+
+  async function register() {
+    const name = document.getElementById('reg-name').value.trim();
+    const email = document.getElementById('reg-email').value.trim();
+    const password = document.getElementById('reg-password').value;
+    if (!name || !email || !password) return showMsg('reg-msg', 'err', 'All fields required.');
+
+    try {
+      const res = await fetch(OAUTH + '/user/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, name }),
+      });
+      const data = await res.json();
+      if (!res.ok) return showMsg('reg-msg', 'err', data.error || 'Registration failed');
+
+      pendingEmail = email;
+      showMsg('reg-msg', 'ok', 'Verification code sent to your email.');
+      showAuthTab('verify');
+    } catch (e) {
+      showMsg('reg-msg', 'err', 'Connection failed');
+    }
+  }
+
+  async function verify() {
+    const code = document.getElementById('verify-code').value.trim();
+    if (!code) return showMsg('verify-msg', 'err', 'Enter the 6-digit code.');
+
+    try {
+      const res = await fetch(OAUTH + '/user/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: pendingEmail, code }),
+      });
+      const data = await res.json();
+      if (!res.ok) return showMsg('verify-msg', 'err', data.error || 'Verification failed');
+
+      if (data.resetToken) {
+        // This was a password reset flow
+        localStorage.setItem('vpn_reset_token', data.resetToken);
+        showMsg('verify-msg', 'ok', 'Code verified. Set your new password.');
+        showAuthTab('reset');
+        return;
       }
-    });
-  }
-  function logout(){API_KEY='';document.getElementById('auth-section').style.display='block';document.getElementById('app').style.display='none';}
 
-  async function apiFetch(path,opts={}){
-    return fetch(path,{...opts,headers:{'Content-Type':'application/json','x-api-key':API_KEY,...(opts.headers||{})}});
+      authToken = data.token;
+      authType = 'user';
+      currentUser = data.user;
+      localStorage.setItem('vpn_token', authToken);
+      localStorage.setItem('vpn_auth_type', 'user');
+      enterApp();
+    } catch (e) {
+      showMsg('verify-msg', 'err', 'Connection failed');
+    }
   }
 
-  async function fetchStatus(){
-    try{
-      const res=await apiFetch('/api/status');
-      if(!res.ok)return false;
-      const d=await res.json();
-      document.getElementById('wg-status').textContent=d.wg||'(no output)';
-      const b=document.getElementById('status-badge');
-      b.textContent=d.ok?`UP · ${d.peerCount} peers`:'DOWN';
-      b.className='badge'+(d.ok?'':' danger');
+  async function resendCode() {
+    if (!pendingEmail) return;
+    try {
+      await fetch(OAUTH + '/user/resend-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: pendingEmail }),
+      });
+      showMsg('verify-msg', 'ok', 'Code resent.');
+    } catch {}
+  }
+
+  // ── Forgot password ─────────────────────────────────────────────────
+
+  async function forgotPassword() {
+    const email = document.getElementById('forgot-email').value.trim();
+    if (!email) return showMsg('forgot-msg', 'err', 'Enter your email.');
+
+    try {
+      const res = await fetch(OAUTH + '/user/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (!res.ok) return showMsg('forgot-msg', 'err', data.error || 'Failed');
+
+      pendingEmail = email;
+      showMsg('forgot-msg', 'ok', 'Reset code sent to your email.');
+      showAuthTab('verify');
+    } catch (e) {
+      showMsg('forgot-msg', 'err', 'Connection failed');
+    }
+  }
+
+  async function resetPassword() {
+    const code = document.getElementById('reset-code').value.trim();
+    const newPassword = document.getElementById('reset-password').value;
+    if (!newPassword) return showMsg('reset-msg', 'err', 'Enter a new password.');
+
+    const resetToken = localStorage.getItem('vpn_reset_token');
+
+    try {
+      // If we have a reset token from verify, use it directly
+      if (resetToken) {
+        const res = await fetch(OAUTH + '/user/reset-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ resetToken, newPassword }),
+        });
+        const data = await res.json();
+        if (!res.ok) return showMsg('reset-msg', 'err', data.error || 'Reset failed');
+        localStorage.removeItem('vpn_reset_token');
+        showMsg('reset-msg', 'ok', 'Password reset! You can now log in.');
+        setTimeout(() => showAuthTab('login'), 1500);
+        return;
+      }
+
+      // Otherwise verify the code first
+      const verifyRes = await fetch(OAUTH + '/user/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: pendingEmail, code }),
+      });
+      const verifyData = await verifyRes.json();
+      if (!verifyRes.ok || !verifyData.resetToken) return showMsg('reset-msg', 'err', 'Invalid code');
+
+      const res = await fetch(OAUTH + '/user/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resetToken: verifyData.resetToken, newPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) return showMsg('reset-msg', 'err', data.error || 'Reset failed');
+      showMsg('reset-msg', 'ok', 'Password reset! You can now log in.');
+      setTimeout(() => showAuthTab('login'), 1500);
+    } catch (e) {
+      showMsg('reset-msg', 'err', 'Connection failed');
+    }
+  }
+
+  // ── Admin login (API key) ──────────────────────────────────────────
+
+  function adminLogin() {
+    const key = document.getElementById('api-key-input').value.trim();
+    if (!key) return showMsg('admin-msg', 'err', 'API key required.');
+    authToken = key;
+    authType = 'admin';
+    localStorage.setItem('vpn_token', key);
+    localStorage.setItem('vpn_auth_type', 'admin');
+    enterApp();
+  }
+
+  // ── Enter app / logout ─────────────────────────────────────────────
+
+  async function enterApp() {
+    const ok = await fetchStatus();
+    if (ok) {
+      document.getElementById('auth-section').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+
+      // Show admin features
+      if (authType === 'admin') {
+        document.getElementById('admin-status').style.display = 'block';
+        document.getElementById('user-info').innerHTML = '<strong>Admin</strong>';
+      } else {
+        document.getElementById('admin-status').style.display = 'none';
+        // Get user info
+        try {
+          const res = await apiFetch('/api/me');
+          const data = await res.json();
+          if (data.user) {
+            currentUser = data.user;
+            document.getElementById('user-info').innerHTML = '<strong>' + (data.user.name || data.user.email) + '</strong>';
+          }
+        } catch {}
+      }
+      loadAll();
+    } else {
+      showMsg(authType === 'admin' ? 'admin-msg' : 'login-msg', 'err', 'Invalid credentials or server unreachable.');
+      authToken = '';
+      authType = '';
+      localStorage.removeItem('vpn_token');
+      localStorage.removeItem('vpn_auth_type');
+    }
+  }
+
+  function logout() {
+    authToken = '';
+    authType = '';
+    currentUser = null;
+    localStorage.removeItem('vpn_token');
+    localStorage.removeItem('vpn_auth_type');
+    document.getElementById('auth-section').style.display = '';
+    document.getElementById('app').style.display = 'none';
+  }
+
+  // ── API fetch wrapper ──────────────────────────────────────────────
+
+  function apiFetch(path, opts = {}) {
+    const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+    if (authType === 'admin') {
+      headers['x-api-key'] = authToken;
+    } else {
+      headers['Authorization'] = 'Bearer ' + authToken;
+    }
+    return fetch(path, { ...opts, headers });
+  }
+
+  // ── Status ─────────────────────────────────────────────────────────
+
+  async function fetchStatus() {
+    try {
+      const res = await apiFetch('/api/status');
+      if (!res.ok) return false;
+      const d = await res.json();
+      if (d.wg) document.getElementById('wg-status').textContent = d.wg;
+      const b = document.getElementById('status-badge');
+      b.textContent = d.ok ? `UP · ${d.peerCount} peers` : 'DOWN';
+      b.className = 'badge' + (d.ok ? '' : ' danger');
       return d.ok;
-    }catch{return false;}
+    } catch { return false; }
   }
 
-  async function loadPeers(){
-    const res=await apiFetch('/api/peers');
-    const list=await res.json();
-    const el=document.getElementById('peers-list');
-    if(!list.length){el.innerHTML='<div style="color:var(--muted);font-size:.85rem">No peers yet.</div>';return;}
-    el.innerHTML=list.map(p=>`
+  // ── Peers ──────────────────────────────────────────────────────────
+
+  async function loadPeers() {
+    const res = await apiFetch('/api/peers');
+    const list = await res.json();
+    const el = document.getElementById('peers-list');
+    if (!list.length) { el.innerHTML = '<div style="color:var(--muted);font-size:.85rem">No peers yet. Create one above.</div>'; return; }
+    el.innerHTML = list.map(p => `
       <div class="peer-row">
         <div class="peer-info">
           <div class="name">${p.name}</div>
-          <div class="meta">${p.ip} &nbsp;·&nbsp; ${p.pubKey.substring(0,20)}...</div>
+          <div class="meta">${p.ip} &nbsp;·&nbsp; ${p.pubKey.substring(0, 20)}...</div>
         </div>
         <div class="peer-actions">
           <button class="btn-muted" onclick="viewConfig('${p.name}')">Config</button>
@@ -200,92 +578,89 @@
       </div>`).join('');
   }
 
-  function loadAll(){fetchStatus();loadPeers();checkAppDownload();}
+  function loadAll() { fetchStatus(); loadPeers(); }
 
-  async function checkAppDownload(){
-    try{
-      const res=await apiFetch('/api/download/app/info');
-      const d=await res.json();
-      if(d.available){
-        const name=d.fileName.toLowerCase();
-        const size=Math.round(d.size/1024/1024)+'MB';
-        if(name.includes('.exe')||name.includes('win')){
-          const el=document.getElementById('dl-windows');
-          el.style.display='';el.title=d.fileName+' ('+size+')';
-        }
-        if(name.includes('.dmg')||name.includes('mac')){
-          const el=document.getElementById('dl-macos');
-          el.style.display='';el.title=d.fileName+' ('+size+')';
-        }
-      }
-    }catch{}
-  }
-
-  async function downloadApp(){
-    try{
-      const res=await apiFetch('/api/download/app/info');
-      const d=await res.json();
-      if(!d.available){alert('Installer not yet uploaded. Upload to gs://bucket/releases/ first.');return;}
-      const a=document.createElement('a');
-      a.href='/api/download/app?key='+encodeURIComponent(API_KEY);
-      a.click();
-    }catch{alert('Could not check for installer.');}
-  }
-
-  function copyConfig(){
-    navigator.clipboard.writeText(currentConfig).then(()=>{
-      const btn=event.target;
-      btn.textContent='Copied!';
-      setTimeout(()=>{btn.textContent='Copy';},1500);
-    });
-  }
-
-  async function addPeer(){
-    const name=document.getElementById('peer-name').value.trim();
-    const msgEl=document.getElementById('add-msg');
-    const btn=document.getElementById('add-btn');
-    if(!name){msgEl.innerHTML='<div class="msg err">Name required.</div>';return;}
-    btn.disabled=true;btn.textContent='Creating...';
-    const res=await apiFetch('/api/peers',{method:'POST',body:JSON.stringify({name})});
-    const data=await res.json();
-    btn.disabled=false;btn.textContent='+ Add Peer';
-    if(!res.ok){msgEl.innerHTML=`<div class="msg err">${data.error}</div>`;return;}
-    msgEl.innerHTML=`<div class="msg ok">Peer "${name}" created at ${data.ip}</div>`;
-    document.getElementById('peer-name').value='';
-    showModal(data.name,data.config,data.qr);
+  async function addPeer() {
+    const name = document.getElementById('peer-name').value.trim();
+    const msgEl = document.getElementById('add-msg');
+    const btn = document.getElementById('add-btn');
+    if (!name) { msgEl.innerHTML = '<div class="msg err">Name required.</div>'; return; }
+    btn.disabled = true; btn.textContent = 'Creating...';
+    const res = await apiFetch('/api/peers', { method: 'POST', body: JSON.stringify({ name }) });
+    const data = await res.json();
+    btn.disabled = false; btn.textContent = '+ Add Peer';
+    if (!res.ok) { msgEl.innerHTML = `<div class="msg err">${data.error}</div>`; return; }
+    msgEl.innerHTML = `<div class="msg ok">Peer "${name}" created at ${data.ip}</div>`;
+    document.getElementById('peer-name').value = '';
+    showModal(data.name, data.config, data.qr);
     loadAll();
   }
 
-  async function viewConfig(name){
-    const res=await apiFetch(`/api/peers/${name}/config`,{headers:{Accept:'application/json'}});
-    const d=await res.json();
-    showModal(name,d.config,d.qr);
+  async function viewConfig(name) {
+    const res = await apiFetch(`/api/peers/${name}/config`, { headers: { Accept: 'application/json' } });
+    const d = await res.json();
+    showModal(name, d.config, d.qr);
   }
 
-  async function removePeer(name){
-    if(!confirm(`Remove peer "${name}"?`))return;
-    await apiFetch(`/api/peers/${name}`,{method:'DELETE'});
+  async function removePeer(name) {
+    if (!confirm(`Remove peer "${name}"?`)) return;
+    await apiFetch(`/api/peers/${name}`, { method: 'DELETE' });
     loadAll();
   }
 
-  function showModal(name,config,qr){
-    currentPeerName=name;currentConfig=config;
-    document.getElementById('modal-title').textContent=`${name}.conf`;
-    document.getElementById('modal-config').textContent=config;
-    const qrEl=document.getElementById('modal-qr');
-    if(qr){qrEl.src=qr;qrEl.style.display='block';}else{qrEl.style.display='none';}
+  // ── Modal ──────────────────────────────────────────────────────────
+
+  function showModal(name, config, qr) {
+    currentPeerName = name; currentConfig = config;
+    document.getElementById('modal-title').textContent = `${name}.conf`;
+    document.getElementById('modal-config').textContent = config;
+    const qrEl = document.getElementById('modal-qr');
+    if (qr) { qrEl.src = qr; qrEl.style.display = 'block'; } else { qrEl.style.display = 'none'; }
     document.getElementById('config-modal').classList.add('open');
   }
 
-  function closeModal(){document.getElementById('config-modal').classList.remove('open');}
+  function closeModal() { document.getElementById('config-modal').classList.remove('open'); }
 
-  function downloadConfig(){
-    const blob=new Blob([currentConfig],{type:'text/plain'});
-    const a=document.createElement('a');
-    a.href=URL.createObjectURL(blob);a.download=`${currentPeerName}.conf`;a.click();
+  function downloadConfig() {
+    const blob = new Blob([currentConfig], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = `${currentPeerName}.conf`; a.click();
   }
 
-  document.getElementById('api-key-input').addEventListener('keydown',e=>{if(e.key==='Enter')login();});
+  function copyConfig() {
+    navigator.clipboard.writeText(currentConfig).then(() => {
+      const btn = event.target;
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+    });
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────
+
+  function showMsg(id, type, text) {
+    document.getElementById(id).innerHTML = `<div class="msg ${type}">${text}</div>`;
+  }
+
+  // ── Auto-login from stored token ───────────────────────────────────
+
+  (function autoLogin() {
+    const token = localStorage.getItem('vpn_token');
+    const type = localStorage.getItem('vpn_auth_type');
+    if (token && type) {
+      authToken = token;
+      authType = type;
+      enterApp();
+    }
+  })();
+
+  // ── Enter key support ──────────────────────────────────────────────
+
+  document.getElementById('login-password').addEventListener('keydown', e => { if (e.key === 'Enter') emailLogin(); });
+  document.getElementById('reg-password').addEventListener('keydown', e => { if (e.key === 'Enter') register(); });
+  document.getElementById('verify-code').addEventListener('keydown', e => { if (e.key === 'Enter') verify(); });
+  document.getElementById('api-key-input').addEventListener('keydown', e => { if (e.key === 'Enter') adminLogin(); });
+  document.getElementById('forgot-email').addEventListener('keydown', e => { if (e.key === 'Enter') forgotPassword(); });
+  document.getElementById('reset-password').addEventListener('keydown', e => { if (e.key === 'Enter') resetPassword(); });
 </script>
 </body>
 </html>

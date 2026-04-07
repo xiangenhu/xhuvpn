@@ -40,6 +40,9 @@ const GCP_PROJECT     = process.env.GOOGLE_CLOUD_PROJECT;
 const SSH_KEY_SECRET  = process.env.SSH_KEY_SECRET  || 'vpn-ssh-private-key';
 const API_KEY_SECRET  = process.env.API_KEY_SECRET  || 'vpn-api-secret';
 
+// OAuth gateway
+const OAUTH_GATEWAY   = process.env.OAUTH_GATEWAY || 'https://oauth.xiangenhu.info';
+
 // ── Secret Manager ─────────────────────────────────────────────────────────
 const secretCache = {};
 
@@ -191,18 +194,62 @@ function nextClientIP(peers) {
 }
 
 // ── Auth Middleware ────────────────────────────────────────────────────────
+// Supports two auth methods:
+//   1. API key (x-api-key header or ?key=) → admin access (all peers)
+//   2. Bearer token from OAuth gateway    → user access (own peers only)
+
 async function auth(req, res, next) {
   try {
-    const token    = req.headers['x-api-key'] || req.query.key;
-    const expected = await getSecret(API_KEY_SECRET);
-    if (token !== expected) return res.status(401).json({ error: 'Unauthorized' });
-    next();
+    // Try API key first (admin)
+    const apiKey = req.headers['x-api-key'] || req.query.key;
+    if (apiKey) {
+      const expected = await getSecret(API_KEY_SECRET);
+      if (apiKey === expected) {
+        req.authType = 'admin';
+        return next();
+      }
+    }
+
+    // Try Bearer token (user via OAuth gateway)
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.slice(7);
+      const userRes = await fetch(`${OAUTH_GATEWAY}/auth/userinfo`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (userRes.ok) {
+        const { user } = await userRes.json();
+        req.authType = 'user';
+        req.user = user; // { email, name, picture, provider }
+        return next();
+      }
+    }
+
+    return res.status(401).json({ error: 'Unauthorized' });
   } catch (e) {
     res.status(500).json({ error: 'Auth service unavailable', detail: e.message });
   }
 }
 
+// ── Helpers: per-user filtering ───────────────────────────────────────────
+
+function filterPeersForUser(peers, req) {
+  if (req.authType === 'admin') return peers;
+  return peers.filter(p => p.owner === req.user.email);
+}
+
+function canAccessPeer(peer, req) {
+  if (req.authType === 'admin') return true;
+  return peer.owner === req.user.email;
+}
+
 // ── Routes ─────────────────────────────────────────────────────────────────
+
+// GET /api/me — get current user info
+app.get('/api/me', auth, (req, res) => {
+  if (req.authType === 'admin') return res.json({ authType: 'admin' });
+  res.json({ authType: 'user', user: req.user });
+});
 
 // GET /api/status
 app.get('/api/status', auth, async (req, res) => {
@@ -211,7 +258,8 @@ app.get('/api/status', auth, async (req, res) => {
     const result = await ssh.execCommand(`sudo wg show ${WG_INTERFACE}`);
     ssh.dispose();
     const peers  = await readPeers();
-    res.json({ ok: true, interface: WG_INTERFACE, peerCount: peers.length, wg: result.stdout });
+    const visible = filterPeersForUser(peers, req);
+    res.json({ ok: true, interface: WG_INTERFACE, peerCount: visible.length, wg: req.authType === 'admin' ? result.stdout : undefined });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }
@@ -220,7 +268,8 @@ app.get('/api/status', auth, async (req, res) => {
 // GET /api/peers
 app.get('/api/peers', auth, async (req, res) => {
   const peers = await readPeers();
-  res.json(peers.map(({ privKey, ...safe }) => safe));
+  const visible = filterPeersForUser(peers, req);
+  res.json(visible.map(({ privKey, ...safe }) => safe));
 });
 
 // POST /api/peers  { name: "alice" }
@@ -232,6 +281,13 @@ app.post('/api/peers', auth, async (req, res) => {
   if (peers.find(p => p.name === name))
     return res.status(409).json({ error: 'Peer name already exists' });
 
+  // Limit regular users to 3 peers
+  if (req.authType === 'user') {
+    const userPeers = peers.filter(p => p.owner === req.user.email);
+    if (userPeers.length >= 3)
+      return res.status(403).json({ error: 'Maximum 3 peers per user' });
+  }
+
   // Generate keypair on GCE VM (has wg available)
   const ssh     = await connectSSH();
   const privKey = (await ssh.execCommand('wg genkey')).stdout.trim();
@@ -242,7 +298,8 @@ app.post('/api/peers', auth, async (req, res) => {
   const { pubKey: serverPubKey } = await getOrCreateServerKeys();
   const clientConf  = buildClientConfig(privKey, ip, serverPubKey);
 
-  peers.push({ name, ip, pubKey, privKey, createdAt: new Date().toISOString() });
+  const owner = req.authType === 'user' ? req.user.email : (req.body.owner || 'admin');
+  peers.push({ name, ip, pubKey, privKey, owner, createdAt: new Date().toISOString() });
   await writePeers(peers);
   await applyWireGuardConfig();
 
@@ -253,9 +310,12 @@ app.post('/api/peers', auth, async (req, res) => {
 // DELETE /api/peers/:name
 app.delete('/api/peers/:name', auth, async (req, res) => {
   let peers = await readPeers();
+  const peer = peers.find(p => p.name === req.params.name);
+  if (!peer) return res.status(404).json({ error: 'Peer not found' });
+  if (!canAccessPeer(peer, req)) return res.status(403).json({ error: 'Not your peer' });
+
   const before = peers.length;
   peers = peers.filter(p => p.name !== req.params.name);
-  if (peers.length === before) return res.status(404).json({ error: 'Peer not found' });
 
   await writePeers(peers);
   await applyWireGuardConfig();
@@ -267,6 +327,7 @@ app.get('/api/peers/:name/config', auth, async (req, res) => {
   const peers = await readPeers();
   const peer  = peers.find(p => p.name === req.params.name);
   if (!peer) return res.status(404).json({ error: 'Peer not found' });
+  if (!canAccessPeer(peer, req)) return res.status(403).json({ error: 'Not your peer' });
 
   const { pubKey: serverPubKey } = await getOrCreateServerKeys();
   const conf = buildClientConfig(peer.privKey, peer.ip, serverPubKey);
