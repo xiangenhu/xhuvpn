@@ -94,8 +94,16 @@
 <!-- ── Auth Section ──────────────────────────────────────────────────── -->
 <div id="auth-section" class="auth-container">
   <h2>Private VPN administration</h2>
-  <p class="subtitle">Administrator: xiangenhu@gmail.com only. Invited friends can sign in to manage their own devices.</p>
+  <p class="subtitle">Administrator: xiangenhu@gmail.com only. Use Google or your verified SKO email account.</p>
   <a class="btn-primary" href="/api/auth/oauth/start">Sign in with Google via SKO</a>
+  <form id="email-signin">
+    <p>Already have an SKO email account? Sign in here; your VPN account is created automatically if capacity is available.</p>
+    <label for="signin-email">Email</label>
+    <input id="signin-email" type="email" autocomplete="username" required>
+    <label for="signin-password">SKO account password</label>
+    <input id="signin-password" type="password" autocomplete="current-password" required>
+    <button class="btn-primary" type="submit">Sign in with email</button>
+  </form>
   <p><label for="invite-code">Have an invitation code?</label></p>
   <input id="invite-code" autocomplete="off" placeholder="Paste your invitation code">
   <button class="btn-primary" id="redeem-invite">Accept invitation with Google</button>
@@ -124,6 +132,7 @@
     <label for="invite-email">Friend’s Google email</label>
     <input type="email" id="invite-email" placeholder="friend@gmail.com">
     <button class="btn-primary" id="create-invite">Generate invitation</button>
+    <label><input type="checkbox" id="email-invite"> Also email this invitation through SKO</label>
     <p id="invite-result" role="status"></p>
     <textarea id="invite-share" readonly hidden rows="4" style="width:100%" aria-label="Invitation link and code"></textarea>
     <button class="btn-muted" id="copy-invite" hidden>Copy invitation</button>
@@ -204,6 +213,14 @@
   let isAdmin = false;
   let currentConfig = '';
   let currentPeerName = '';
+  document.getElementById('email-signin').addEventListener('submit',async event=>{
+    event.preventDefault();const button=event.currentTarget.querySelector('button');button.disabled=true;
+    try {
+      await jsonRequest('/api/auth/email/login',{email:document.getElementById('signin-email').value,password:document.getElementById('signin-password').value});
+      document.getElementById('signin-password').value='';window.location.assign('/');
+    }catch(error){showMsg('login-msg','err',error.message);}
+    finally{document.getElementById('signin-password').value='';button.disabled=false;}
+  });
   async function apiFetch(path, opts = {}) {
     return fetch(path, {...opts, credentials:'same-origin', headers:{'Content-Type':'application/json','X-VPN-Request':'1',...(opts.headers || {})}});
   }
@@ -395,8 +412,9 @@
     const button=document.getElementById('create-invite');button.disabled=true;
     document.getElementById('invite-share').hidden=true;document.getElementById('copy-invite').hidden=true;
     try {
-      const data=await jsonRequest('/api/admin/invitations',{email:document.getElementById('invite-email').value});
+      const data=await jsonRequest('/api/admin/invitations',{email:document.getElementById('invite-email').value,sendEmail:document.getElementById('email-invite').checked});
       document.getElementById('invite-result').textContent='Single-use invitation for '+data.email+'. Expires '+new Date(data.expires).toLocaleString()+'. Share privately; generating another invalidates the previous code.';
+      if(data.emailStatus) document.getElementById('invite-result').textContent+=data.emailStatus==='sent'?' Email accepted by the mail service.':' Email delivery could not be confirmed. Copy the invitation below; no automatic resend was attempted.';
       const field=document.getElementById('invite-share');field.value=data.url+'\nCode: '+data.code;field.hidden=false;document.getElementById('copy-invite').hidden=false;loadMembers();
     }catch(e){document.getElementById('invite-result').textContent=e.message;}finally{button.disabled=false;}
   });

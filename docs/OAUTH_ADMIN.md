@@ -1,8 +1,18 @@
 # Owner-only administration through SKO
 
-Only the Google identity `xiangenhu@gmail.com` can administer this VPN manager.
+Only the verified identity `xiangenhu@gmail.com` can administer this VPN manager, through Google OAuth or the proxy's existing verified email/password account.
 The restriction is hard-coded and enforced server-side on every admin route; invitation codes cannot grant administrator access.
-There is no API-key, email/password or browser bearer-token fallback.
+There is no API-key or browser bearer-token fallback. Email/password authentication is performed by the fixed SKO proxy; the VPN app does not maintain passwords.
+
+## Existing SKO email accounts and SMTP
+
+The login page offers **Sign in with email**, using `POST https://oauth.skoonline.org/user/login` from the VPN backend. It requires a successful proxy response containing a nonempty token, the exact requested email and an explicit true verification assertion (`emailVerified`, `email_verified`, or `verified`), with no false assertion. Passwords and proxy tokens are not persisted or returned to the browser. The app issues its encrypted, eight-hour session as usual. Five attempts per email per 15-minute window are enforced using atomic GCS creates across instances.
+
+After verified email login, a new local member is created automatically, without an invitation, subject to the nine-member capacity (pending invitations reserve seats). This intentionally allows verified SKO email accounts beyond invited users to enroll while capacity remains. Disabled accounts remain blocked. Existing Google and email sessions for the same verified address use the same VPN role and devices. Only `xiangenhu@gmail.com` is admin through either method; this does not confer administration of the SKO proxy itself. Uninvited Google-only users still need an invitation unless their VPN account already exists.
+
+Enable `smtp` for client `xhuvpn` in proxy Administration. The backend uses the same `PROXY_CLIENT_ID` / `PROXY_CLIENT_SECRET` with the documented `/genai/services/smtp/send` endpoint. Selecting **Also email this invitation through SKO** explicitly sends the generated invitation to that recipient. A stable request ID accompanies the send. Unconfirmed delivery is displayed without automatic retries; the invitation remains available to copy. No test email is sent by loading the page.
+
+These changes have mocked authentication/mail coverage, not live account verification or delivery confirmation. Deployment must verify the actual proxy response includes explicit email verification, configure the client's SMTP permission and secrets, and test sign-in with the account owner. Never weaken verification to compensate for missing gateway assertions.
 
 ## Invite friends and disable users
 
