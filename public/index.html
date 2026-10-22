@@ -97,7 +97,7 @@
   <p class="subtitle">Administrator: xiangenhu@gmail.com only. Use Google or your verified SKO email account.</p>
   <a class="btn-primary" href="/api/auth/oauth/start">Sign in with Google via SKO</a>
   <form id="email-signin">
-    <p>Already have an SKO email account? Sign in here; your VPN account is created automatically if capacity is available.</p>
+    <p>Sign in with your existing SKO email account. New users request an invitation code from the administrator; approved users go straight to their devices.</p>
     <label for="signin-email">Email</label>
     <input id="signin-email" type="email" autocomplete="username" required>
     <label for="signin-password">SKO account password</label>
@@ -110,6 +110,18 @@
   <p class="subtitle">Use the Google account whose email received the invitation.</p>
   <div id="login-msg" role="status"></div>
 </div>
+
+<section id="approval-section" class="auth-container" hidden>
+  <h2>Request your VPN access code</h2>
+  <p id="approval-identity"></p>
+  <p>Your email is verified. Request a code from xiangenhu@gmail.com, then enter it below to continue to device setup.</p>
+  <button class="btn-primary" id="request-approval">Request code from administrator</button>
+  <label for="approval-code">Administrator’s invitation code</label>
+  <input id="approval-code" autocomplete="off" placeholder="Paste your invitation code">
+  <button class="btn-primary" id="submit-approval">Continue to device setup</button>
+  <p id="approval-status" role="status"></p>
+  <button class="btn-muted" onclick="logout()">Sign out</button>
+</section>
 
 <div id="app">
   <header>
@@ -128,6 +140,7 @@
 
   <section class="section" id="admin-members" hidden>
     <h2>Friends and invitations</h2>
+    <div id="approval-requests"></div>
     <p>Only you can invite or disable users. Up to nine friends; three devices each.</p>
     <label for="invite-email">Friend’s Google email</label>
     <input type="email" id="invite-email" placeholder="friend@gmail.com">
@@ -228,7 +241,7 @@
   document.getElementById('email-signin').addEventListener('submit',async event=>{
     event.preventDefault();const button=event.currentTarget.querySelector('button');button.disabled=true;
     try {
-      await jsonRequest('/api/auth/email/login',{email:document.getElementById('signin-email').value,password:document.getElementById('signin-password').value});
+      await jsonRequest('/api/auth/email/login',{email:document.getElementById('signin-email').value,password:document.getElementById('signin-password').value,invite:document.getElementById('invite-code').value.trim() || undefined});
       document.getElementById('signin-password').value='';window.location.assign('/');
     }catch(error){showMsg('login-msg','err',error.message);}
     finally{document.getElementById('signin-password').value='';button.disabled=false;}
@@ -244,6 +257,14 @@
       currentUser = data.user;
       isAdmin = data.authType === 'admin';
       document.getElementById('auth-section').style.display = 'none';
+      if(data.authType==='pending') {
+        document.getElementById('app').style.display='none';
+        document.getElementById('approval-section').hidden=false;
+        document.getElementById('approval-identity').textContent='Signed in as '+currentUser.email;
+        document.getElementById('approval-code').value=document.getElementById('invite-code').value;
+        return;
+      }
+      document.getElementById('approval-section').hidden=true;
       document.getElementById('app').style.display = 'block';
       document.getElementById('admin-status').style.display = isAdmin ? 'block' : 'none';
       document.getElementById('admin-members').hidden = !isAdmin;
@@ -258,6 +279,21 @@
       window.location.reload();
     } catch { alert('Sign-out failed. Please retry.'); }
   }
+  document.getElementById('request-approval').addEventListener('click',async event=>{
+    const button=event.currentTarget;button.disabled=true;
+    try {
+      const result=await jsonRequest('/api/access/request',{});
+      document.getElementById('approval-status').textContent=result.emailStatus==='sent' ? 'Your request is in the admin dashboard and an email notification was accepted. Enter the code when the administrator sends it.' : result.emailStatus==='already-requested' ? 'Your request is already in the admin dashboard. Please wait for your code.' : 'Your request is saved in the admin dashboard. Email delivery could not be confirmed; you can also contact the administrator directly.';
+    }catch(e){document.getElementById('approval-status').textContent=e.message;button.disabled=false;}
+  });
+  document.getElementById('submit-approval').addEventListener('click',async event=>{
+    const button=event.currentTarget;button.disabled=true;
+    try {
+      await jsonRequest('/api/access/redeem',{code:document.getElementById('approval-code').value.trim()});
+      await enterApp();
+    }catch(e){document.getElementById('approval-status').textContent=e.message;}
+    finally{button.disabled=false;}
+  });
 
   // ── Status ─────────────────────────────────────────────────────────
 
@@ -408,6 +444,18 @@
   async function loadMembers() {
     try {
       const data=await jsonRequest('/api/admin/users');
+      const requests=document.getElementById('approval-requests');requests.replaceChildren();
+      for(const request of data.requests || []) {
+        const row=document.createElement('div');row.className='peer-row';
+        const label=document.createElement('span');label.textContent=request.email+' · Requests access';row.append(label);
+        const approve=document.createElement('button');approve.className='btn-primary';approve.textContent='Prepare invitation';
+        approve.addEventListener('click',()=>{
+          document.getElementById('invite-email').value=request.email;
+          document.getElementById('email-invite').checked=true;
+          document.getElementById('create-invite').scrollIntoView({behavior:'smooth',block:'center'});
+          document.getElementById('invite-result').textContent='Review the address, then choose Generate invitation to issue and email the code.';
+        });row.append(approve);requests.append(row);
+      }
       const box=document.getElementById('members-list');box.replaceChildren();
       const rows=[...data.users.map(u=>({...u,label:u.enabled?'Active':'Disabled'})),...data.invitations.filter(i=>!data.users.some(u=>u.email===i.email)).map(i=>({...i,label:'Invitation pending',enabled:true}))];
       for(const user of rows) {

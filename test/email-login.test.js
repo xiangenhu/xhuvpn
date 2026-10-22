@@ -19,10 +19,19 @@ test('verified SMTP owner signs in as sole admin without storing password or pro
  await f.oauth.auth(req,f.response(),()=>passed=true);assert.equal(passed,true);assert.equal(req.authType,'admin');
  assert.ok([...f.data.values()].every(v=>!v.includes('test-password')&&!v.includes('server-only-token')));
 });
-test('new verified proxy account registers once; disabling revokes email login',async()=>{
+test('new verified proxy account waits for approval; code unlocks same session and disabling revokes email login',async()=>{
  const f=fixture();f.setReply({token:'test',user:{email:'friend@example.com',emailVerified:true}});
- assert.equal((await f.login('friend@example.com')).code,200);assert.equal((await f.login('friend@example.com')).code,200);
- assert.equal(Object.keys(f.state().users).length,1);assert.equal(await f.access.role({email:'friend@example.com'}),'user');
+ const login=await f.login('friend@example.com');assert.equal(login.code,200);assert.equal((await f.login('friend@example.com')).code,200);
+ assert.equal(Object.keys(f.state().users).length,0);assert.equal(await f.access.role({email:'friend@example.com'}),'pending');
+ const headers={cookie:login.cookies[0].split(';')[0],origin:'https://vpn.example','x-vpn-request':'1'};
+ for(const [method,path] of [['GET','/api/peers'],['POST','/api/peers'],['GET','/api/peers/phone/config'],['GET','/api/status'],['POST','/api/admin/reconcile']]) {
+   const res=f.response();await f.oauth.auth({headers,method,path},res,()=>assert.fail('pending user bypassed approval'));assert.equal(res.code,403);
+ }
+ for(const [method,path] of [['GET','/api/me'],['POST','/api/access/request'],['POST','/api/access/redeem']]) {
+   let passed=false;await f.oauth.auth({headers,method,path},f.response(),()=>passed=true);assert.equal(passed,true);
+ }
+ const invite=await f.access.invite('friend@example.com');await f.access.redeem({email:'friend@example.com'},invite.code);
+ let passed=false;await f.oauth.auth({headers,method:'GET',path:'/api/peers'},f.response(),()=>passed=true);assert.equal(passed,true);
  await f.access.disable('friend@example.com');assert.equal((await f.login('friend@example.com')).code,403);
 });
 test('SMTP login rejects missing/false verification, email mismatch, CSRF and excess attempts',async()=>{

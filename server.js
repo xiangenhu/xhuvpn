@@ -275,8 +275,20 @@ app.get('/api/peers/:name/connection',auth,route(async(req,res)=>{
 
 app.get('/api/me', auth, (req, res) => {
   if (req.authType === 'admin') return res.json({ authType: 'admin', user: req.user });
-  res.json({ authType: 'user', user: req.user });
+  res.json({ authType: req.authType, user: req.user });
 });
+app.post('/api/access/redeem',auth,route(async(req,res)=>{
+  await access.redeem(req.user,req.body.code);
+  res.json({approved:true});
+}));
+app.post('/api/access/request',auth,route(async(req,res)=>{
+  const request=await access.requestApproval(req.user);
+  if(request.alreadyRequested) return res.json({requested:true,emailStatus:'already-requested'});
+  let emailStatus='sent';
+  try {await require('./lib/smtp').sendApprovalRequest(request);}
+  catch {emailStatus='unconfirmed';}
+  res.json({requested:true,emailStatus});
+}));
 
 app.get('/api/admin/users', auth, adminOnly, route(async (req,res)=>res.json(await access.summary())));
 app.post('/api/admin/invitations', auth, adminOnly, route(async (req,res)=>{
