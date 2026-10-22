@@ -94,8 +94,12 @@
 <!-- ── Auth Section ──────────────────────────────────────────────────── -->
 <div id="auth-section" class="auth-container">
   <h2>Private VPN administration</h2>
-  <p class="subtitle">Only xiangenhu@gmail.com can manage this VPN. Friends receive their own device configurations from the administrator.</p>
+  <p class="subtitle">Administrator: xiangenhu@gmail.com only. Invited friends can sign in to manage their own devices.</p>
   <a class="btn-primary" href="/api/auth/oauth/start">Sign in with Google via SKO</a>
+  <p><label for="invite-code">Have an invitation code?</label></p>
+  <input id="invite-code" autocomplete="off" placeholder="Paste your invitation code">
+  <button class="btn-primary" id="redeem-invite">Accept invitation with Google</button>
+  <p class="subtitle">Use the Google account whose email received the invitation.</p>
   <div id="login-msg" role="status"></div>
 </div>
 
@@ -112,6 +116,19 @@
     <div class="card"><pre id="wg-status">Loading...</pre></div>
   </div>
 
+  <section class="section" id="admin-members" hidden>
+    <h2>Friends and invitations</h2>
+    <p>Only you can invite or disable users. Up to nine friends; three devices each.</p>
+    <label for="invite-email">Friend’s Google email</label>
+    <input type="email" id="invite-email" placeholder="friend@gmail.com">
+    <button class="btn-primary" id="create-invite">Generate invitation</button>
+    <p id="invite-result" role="status"></p>
+    <textarea id="invite-share" readonly hidden rows="4" style="width:100%" aria-label="Invitation link and code"></textarea>
+    <button class="btn-muted" id="copy-invite" hidden>Copy invitation</button>
+    <div id="members-list"></div>
+    <p id="member-status" role="status"></p>
+    <button class="btn-muted" id="retry-sync">Retry VPN synchronization</button>
+  </section>
   <div class="section">
     <h2>Add Peer</h2>
     <div class="row">
@@ -167,7 +184,7 @@
     <pre id="modal-config"></pre>
     <div class="row">
       <button class="btn-primary" onclick="downloadConfig()">Download .conf</button>
-      <button class="btn-muted" onclick="copyConfig()">Copy</button>
+      <button class="btn-muted" onclick="copyConfig(this)">Copy</button>
       <button class="btn-muted" onclick="closeModal()">Close</button>
     </div>
   </div>
@@ -175,6 +192,7 @@
 
 <script>
   let currentUser = null;
+  let isAdmin = false;
   let currentConfig = '';
   let currentPeerName = '';
   async function apiFetch(path, opts = {}) {
@@ -186,10 +204,12 @@
       if (!res.ok) return;
       const data = await res.json();
       currentUser = data.user;
+      isAdmin = data.authType === 'admin';
       document.getElementById('auth-section').style.display = 'none';
       document.getElementById('app').style.display = 'block';
-      document.getElementById('admin-status').style.display = 'block';
-      document.getElementById('user-info').textContent = 'Administrator · ' + currentUser.email;
+      document.getElementById('admin-status').style.display = isAdmin ? 'block' : 'none';
+      document.getElementById('admin-members').hidden = !isAdmin;
+      document.getElementById('user-info').textContent = (isAdmin?'Administrator · ':'Member · ') + currentUser.email;
       loadAll();
     } catch { showMsg('login-msg','err','Unable to contact the server. Please retry.'); }
   }
@@ -206,14 +226,16 @@
   async function fetchStatus() {
     try {
       const res = await apiFetch('/api/status');
-      if (!res.ok) return false;
+      if (!res.ok) throw Error('VPN unavailable');
       const d = await res.json();
       if (d.wg) document.getElementById('wg-status').textContent = d.wg;
       const b = document.getElementById('status-badge');
       b.textContent = d.ok ? `UP · ${d.peerCount} peers` : 'DOWN';
       b.className = 'badge' + (d.ok ? '' : ' danger');
       return d.ok;
-    } catch { return false; }
+    } catch { }
+    const badge=document.getElementById('status-badge');badge.textContent='VPN unavailable';badge.className='badge danger';
+    return false;
   }
 
   // ── Peers ──────────────────────────────────────────────────────────
@@ -240,7 +262,7 @@
     }
   }
 
-  function loadAll() { fetchStatus(); loadPeers().catch(()=>{document.getElementById('peers-list').textContent='Unable to load devices. Please refresh to retry.';}); }
+  function loadAll() { if(isAdmin) loadMembers(); fetchStatus(); loadPeers().catch(()=>{document.getElementById('peers-list').textContent='Unable to load devices. Please refresh to retry.';}); }
 
   async function addPeer() {
     const name = document.getElementById('peer-name').value.trim();
@@ -248,26 +270,29 @@
     const btn = document.getElementById('add-btn');
     if (!name) { msgEl.innerHTML = '<div class="msg err">Name required.</div>'; return; }
     btn.disabled = true; btn.textContent = 'Creating...';
-    const res = await apiFetch('/api/peers', { method: 'POST', body: JSON.stringify({ name }) });
-    const data = await res.json();
-    btn.disabled = false; btn.textContent = '+ Add Peer';
-    if (!res.ok) { msgEl.textContent = data.error; return; }
-    msgEl.textContent = `Device "${name}" created at ${data.ip}`;
-    document.getElementById('peer-name').value = '';
-    showModal(data.name, data.config, data.qr);
-    loadAll();
+    try {
+      const data = await jsonRequest('/api/peers',{name});
+      msgEl.textContent = `Device "${name}" created at ${data.ip}`;
+      document.getElementById('peer-name').value = '';
+      showModal(data.name, data.config, data.qr);
+    } catch(e) { msgEl.textContent=e.message; }
+    finally {btn.disabled=false;btn.textContent='+ Add Peer';loadAll();}
   }
 
   async function viewConfig(name) {
-    const res = await apiFetch(`/api/peers/${encodeURIComponent(name)}/config`, { headers: { Accept: 'application/json' } });
-    const d = await res.json();
-    showModal(name, d.config, d.qr);
+    try {
+      const res=await apiFetch(`/api/peers/${encodeURIComponent(name)}/config`,{headers:{Accept:'application/json'}});
+      const data=await res.json();if(!res.ok) throw Error(data.error || 'Unable to download configuration');
+      showModal(name,data.config,data.qr);
+    }catch(e){alert(e.message);}
   }
 
   async function removePeer(name) {
-    if (!confirm(`Remove peer "${name}"?`)) return;
-    await apiFetch(`/api/peers/${encodeURIComponent(name)}`, { method: 'DELETE' });
-    loadAll();
+    if(!confirm(`Remove device "${name}"?`))return;
+    try {
+      const res=await apiFetch(`/api/peers/${encodeURIComponent(name)}`,{method:'DELETE'});
+      const data=await res.json();if(!res.ok)throw Error(data.error || 'Unable to remove device');
+    }catch(e){alert(e.message);}finally{loadAll();}
   }
 
   // ── Modal ──────────────────────────────────────────────────────────
@@ -294,9 +319,8 @@
     window.location.assign(stores[platform] || 'https://www.wireguard.com/install/');
   }
 
-  function copyConfig() {
+  function copyConfig(btn) {
     navigator.clipboard.writeText(currentConfig).then(() => {
-      const btn = event.target;
       btn.textContent = 'Copied!';
       setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
     });
@@ -308,6 +332,60 @@
     document.getElementById(id).textContent = text;
   }
 
+  async function jsonRequest(path,body) {
+    const response=await apiFetch(path,body===undefined?{}:{method:'POST',body:JSON.stringify(body)});
+    const result=await response.json();
+    if(!response.ok) throw Error(result.error || 'Request failed. Please retry.');
+    return result;
+  }
+  async function loadMembers() {
+    try {
+      const data=await jsonRequest('/api/admin/users');
+      const box=document.getElementById('members-list');box.replaceChildren();
+      const rows=[...data.users.map(u=>({...u,label:u.enabled?'Active':'Disabled'})),...data.invitations.filter(i=>!data.users.some(u=>u.email===i.email)).map(i=>({...i,label:'Invitation pending',enabled:true}))];
+      for(const user of rows) {
+        const row=document.createElement('div');row.className='peer-row';
+        const label=document.createElement('span');label.textContent=user.email+' · '+user.label+(user.deviceCount===undefined?'':' · '+user.deviceCount+' devices');row.append(label);
+        if(user.enabled) {
+          const button=document.createElement('button');button.className='btn-danger';button.textContent='Disable';
+          button.addEventListener('click',async()=>{
+            if(!confirm('Disable '+user.email+' and revoke all their VPN devices?')) return;
+            button.disabled=true;
+            try{await jsonRequest('/api/admin/users/disable',{email:user.email});document.getElementById('member-status').textContent='User disabled and VPN configuration updated.';}
+            catch(e){document.getElementById('member-status').textContent=e.message;}
+            finally{loadAll();}
+          });row.append(button);
+        }
+        box.append(row);
+      }
+    }catch(e){document.getElementById('member-status').textContent=e.message;}
+  }
+  document.getElementById('create-invite').addEventListener('click',async()=>{
+    const button=document.getElementById('create-invite');button.disabled=true;
+    document.getElementById('invite-share').hidden=true;document.getElementById('copy-invite').hidden=true;
+    try {
+      const data=await jsonRequest('/api/admin/invitations',{email:document.getElementById('invite-email').value});
+      document.getElementById('invite-result').textContent='Single-use invitation for '+data.email+'. Expires '+new Date(data.expires).toLocaleString()+'. Share privately; generating another invalidates the previous code.';
+      const field=document.getElementById('invite-share');field.value=data.url+'\nCode: '+data.code;field.hidden=false;document.getElementById('copy-invite').hidden=false;loadMembers();
+    }catch(e){document.getElementById('invite-result').textContent=e.message;}finally{button.disabled=false;}
+  });
+  document.getElementById('copy-invite').addEventListener('click',async()=>{
+    try{await navigator.clipboard.writeText(document.getElementById('invite-share').value);document.getElementById('invite-result').textContent='Invitation copied. Share it privately.';}
+    catch{document.getElementById('invite-share').select();}
+  });
+  document.getElementById('retry-sync').addEventListener('click',async()=>{
+    const button=document.getElementById('retry-sync');button.disabled=true;
+    try{await jsonRequest('/api/admin/reconcile',{});document.getElementById('member-status').textContent='VPN configuration synchronized.';}
+    catch(e){document.getElementById('member-status').textContent=e.message;}finally{button.disabled=false;loadAll();}
+  });
+  const invitation=new URLSearchParams(location.hash.slice(1)).get('invite');
+  if(invitation){document.getElementById('invite-code').value=invitation;history.replaceState({},'',location.pathname);}
+  document.getElementById('redeem-invite').addEventListener('click',async()=>{
+    const invite=document.getElementById('invite-code').value.trim();
+    if(!/^[\w-]{24}$/.test(invite)) return showMsg('login-msg','err','Paste a valid invitation code.');
+    try{const result=await jsonRequest('/api/auth/oauth/start',{invite});location.assign(result.url);}
+    catch(e){showMsg('login-msg','err',e.message);}
+  });
   // Remove credentials left by the old browser login implementation.
   ['vpn_token','vpn_auth_type','vpn_reset_token'].forEach(key => localStorage.removeItem(key));
   if (new URLSearchParams(location.search).has('token')) history.replaceState({},'',location.pathname);
