@@ -93,90 +93,12 @@
 
 <!-- ── Auth Section ──────────────────────────────────────────────────── -->
 <div id="auth-section" class="auth-container">
-  <h2>VPN Manager</h2>
-  <p class="subtitle">Sign in to manage your VPN connections</p>
-
-  <div class="auth-tabs">
-    <div class="auth-tab active" onclick="showAuthTab('login')">Login</div>
-    <div class="auth-tab" onclick="showAuthTab('admin')">Admin</div>
-  </div>
-
-  <!-- Login form (auto-registers if user doesn't exist) -->
-  <div id="form-login" class="auth-form active">
-    <button class="btn-google" onclick="googleLogin()">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-      Sign in with Google
-    </button>
-    <div class="divider">or email</div>
-    <div class="form-field">
-      <label>Email</label>
-      <input type="email" id="login-email" placeholder="you@example.com">
-    </div>
-    <div class="form-field">
-      <label>Password</label>
-      <input type="password" id="login-password" placeholder="Your password">
-    </div>
-    <button class="btn-primary" style="width:100%;margin-top:.5rem" onclick="emailLogin()">Sign In</button>
-    <div style="margin-top:.8rem;text-align:center">
-      <span class="form-link" onclick="showAuthTab('forgot')">Forgot password?</span>
-    </div>
-    <div id="login-msg"></div>
-  </div>
-
-  <!-- Verify form -->
-  <div id="form-verify" class="auth-form">
-    <p style="margin-bottom:1rem;font-size:.9rem">Check your email for a 6-digit verification code.</p>
-    <div class="form-field">
-      <label>Verification Code</label>
-      <input type="text" id="verify-code" placeholder="123456" maxlength="6">
-    </div>
-    <button class="btn-primary" style="width:100%" onclick="verify()">Verify Email</button>
-    <div style="margin-top:.8rem;text-align:center">
-      <span class="form-link" onclick="resendCode()">Resend code</span>
-    </div>
-    <div id="verify-msg"></div>
-  </div>
-
-  <!-- Forgot password form -->
-  <div id="form-forgot" class="auth-form">
-    <p style="margin-bottom:1rem;font-size:.9rem">Enter your email to receive a reset code.</p>
-    <div class="form-field">
-      <label>Email</label>
-      <input type="email" id="forgot-email" placeholder="you@example.com">
-    </div>
-    <button class="btn-primary" style="width:100%" onclick="forgotPassword()">Send Reset Code</button>
-    <div style="margin-top:.8rem;text-align:center">
-      <span class="form-link" onclick="showAuthTab('login')">Back to login</span>
-    </div>
-    <div id="forgot-msg"></div>
-  </div>
-
-  <!-- Reset password form -->
-  <div id="form-reset" class="auth-form">
-    <div class="form-field">
-      <label>Reset Code</label>
-      <input type="text" id="reset-code" placeholder="123456" maxlength="6">
-    </div>
-    <div class="form-field">
-      <label>New Password</label>
-      <input type="password" id="reset-password" placeholder="New password">
-    </div>
-    <button class="btn-primary" style="width:100%" onclick="resetPassword()">Reset Password</button>
-    <div id="reset-msg"></div>
-  </div>
-
-  <!-- Admin (API key) -->
-  <div id="form-admin" class="auth-form">
-    <div class="form-field">
-      <label>API Secret</label>
-      <input type="password" id="api-key-input" placeholder="Enter admin API secret...">
-    </div>
-    <button class="btn-primary" style="width:100%" onclick="adminLogin()">Unlock</button>
-    <div id="admin-msg"></div>
-  </div>
+  <h2>Private VPN administration</h2>
+  <p class="subtitle">Only xiangenhu@gmail.com can manage this VPN. Friends receive their own device configurations from the administrator.</p>
+  <a class="btn-primary" href="/api/auth/oauth/start">Sign in with Google via SKO</a>
+  <div id="login-msg" role="status"></div>
 </div>
 
-<!-- ── Main App ──────────────────────────────────────────────────────── -->
 <div id="app">
   <header>
     <h1>VPN Manager</h1>
@@ -210,11 +132,11 @@
       <a class="dl-card" href="#" onclick="downloadApp('msi');return false">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 12V6.75l6-1.32v6.48L3 12zm6.27.09l8.73.01V5.28l-8.73 1.56V12.09zM3 13l6 .09v6.81l-6-1.08V13zm6.27-.01v6.82l8.73 1.47V13.01l-8.73-.02z"/></svg>
         <span class="dl-label">Windows</span>
-        <span class="dl-hint">Download .msi</span>
+        <span class="dl-hint">Official client</span>
       </a>
       <a class="dl-card" href="#" onclick="downloadApp('ios');return false">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
-        <span class="dl-label">iPhone</span>
+        <span class="dl-label">iPhone / iPad</span>
         <span class="dl-hint">WireGuard App</span>
       </a>
       <a class="dl-card" href="#" onclick="downloadApp('android');return false">
@@ -225,11 +147,11 @@
       <a class="dl-card" href="#" onclick="downloadApp('dmg');return false">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
         <span class="dl-label">macOS</span>
-        <span class="dl-hint">Download .dmg</span>
+        <span class="dl-hint">Official client</span>
       </a>
     </div>
     <div style="margin-top:.8rem;font-size:.75rem;color:var(--muted)">
-      Mobile: Install the official WireGuard app, then scan a peer's QR code to connect.
+      Install the official WireGuard app, then import your device configuration or scan its QR code. Linux: <a href="https://www.wireguard.com/install/">installation instructions</a>. Keep configurations private.
     </div>
   </div>
 </div>
@@ -252,276 +174,31 @@
 </div>
 
 <script>
-  const OAUTH = 'https://oauth.xiangenhu.info';
-  let authToken = '';    // JWT or API key
-  let authType = '';     // 'user', 'admin', or 'google'
   let currentUser = null;
-  let currentConfig = '', currentPeerName = '';
-  let pendingEmail = ''; // for verify/reset flows
-  let pendingPassword = ''; // for auto-login after verify
-
-  // ── Auth tab switching ──────────────────────────────────────────────
-
-  function showAuthTab(tab) {
-    document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
-    document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
-    const form = document.getElementById('form-' + tab);
-    if (form) form.classList.add('active');
-    const tabEl = [...document.querySelectorAll('.auth-tab')].find(t => t.textContent.toLowerCase() === tab);
-    if (tabEl) tabEl.classList.add('active');
+  let currentConfig = '';
+  let currentPeerName = '';
+  async function apiFetch(path, opts = {}) {
+    return fetch(path, {...opts, credentials:'same-origin', headers:{'Content-Type':'application/json','X-VPN-Request':'1',...(opts.headers || {})}});
   }
-
-  // ── Google OAuth login ──────────────────────────────────────────────
-
-  function googleLogin() {
-    const redirect = window.location.origin + window.location.pathname;
-    window.location.href = OAUTH + '/auth/google/login?redirect_uri=' + encodeURIComponent(redirect);
-  }
-
-  // Handle OAuth redirect (token in URL)
-  (function handleOAuthRedirect() {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get('token');
-    if (token) {
-      window.history.replaceState({}, '', window.location.pathname);
-      authToken = token;
-      authType = 'google';
-      localStorage.setItem('vpn_token', token);
-      localStorage.setItem('vpn_auth_type', 'google');
-      enterApp();
-    }
-  })();
-
-  // ── Email/password login (auto-registers if user doesn't exist) ─────
-
-  async function emailLogin() {
-    const email = document.getElementById('login-email').value.trim();
-    const password = document.getElementById('login-password').value;
-    if (!email || !password) return showMsg('login-msg', 'err', 'Email and password required.');
-
-    try {
-      // Try login first
-      const res = await fetch(OAUTH + '/user/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await res.json();
-
-      if (res.ok) {
-        authToken = data.token;
-        authType = 'user';
-        currentUser = data.user;
-        localStorage.setItem('vpn_token', authToken);
-        localStorage.setItem('vpn_auth_type', 'user');
-        enterApp();
-        return;
-      }
-
-      // If user not found, auto-register
-      const errMsg = (data.error || '').toLowerCase();
-      if (errMsg.includes('not found') || errMsg.includes('no user') || errMsg.includes('does not exist') || res.status === 404) {
-        showMsg('login-msg', 'ok', 'Creating your account...');
-        const regRes = await fetch(OAUTH + '/user/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, name: email.split('@')[0] }),
-        });
-        const regData = await regRes.json();
-        if (!regRes.ok) return showMsg('login-msg', 'err', regData.error || 'Registration failed');
-
-        pendingEmail = email;
-        pendingPassword = password;
-        showMsg('login-msg', 'ok', 'Verification code sent to your email.');
-        showAuthTab('verify');
-        return;
-      }
-
-      showMsg('login-msg', 'err', data.error || 'Login failed');
-    } catch (e) {
-      showMsg('login-msg', 'err', 'Connection failed');
-    }
-  }
-
-  async function verify() {
-    const code = document.getElementById('verify-code').value.trim();
-    if (!code) return showMsg('verify-msg', 'err', 'Enter the 6-digit code.');
-
-    try {
-      const res = await fetch(OAUTH + '/user/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: pendingEmail, code }),
-      });
-      const data = await res.json();
-      if (!res.ok) return showMsg('verify-msg', 'err', data.error || 'Verification failed');
-
-      if (data.resetToken) {
-        // This was a password reset flow
-        localStorage.setItem('vpn_reset_token', data.resetToken);
-        showMsg('verify-msg', 'ok', 'Code verified. Set your new password.');
-        showAuthTab('reset');
-        return;
-      }
-
-      authToken = data.token;
-      authType = 'user';
-      currentUser = data.user;
-      localStorage.setItem('vpn_token', authToken);
-      localStorage.setItem('vpn_auth_type', 'user');
-      enterApp();
-    } catch (e) {
-      showMsg('verify-msg', 'err', 'Connection failed');
-    }
-  }
-
-  async function resendCode() {
-    if (!pendingEmail) return;
-    try {
-      await fetch(OAUTH + '/user/resend-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: pendingEmail }),
-      });
-      showMsg('verify-msg', 'ok', 'Code resent.');
-    } catch {}
-  }
-
-  // ── Forgot password ─────────────────────────────────────────────────
-
-  async function forgotPassword() {
-    const email = document.getElementById('forgot-email').value.trim();
-    if (!email) return showMsg('forgot-msg', 'err', 'Enter your email.');
-
-    try {
-      const res = await fetch(OAUTH + '/user/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-      const data = await res.json();
-      if (!res.ok) return showMsg('forgot-msg', 'err', data.error || 'Failed');
-
-      pendingEmail = email;
-      showMsg('forgot-msg', 'ok', 'Reset code sent to your email.');
-      showAuthTab('verify');
-    } catch (e) {
-      showMsg('forgot-msg', 'err', 'Connection failed');
-    }
-  }
-
-  async function resetPassword() {
-    const code = document.getElementById('reset-code').value.trim();
-    const newPassword = document.getElementById('reset-password').value;
-    if (!newPassword) return showMsg('reset-msg', 'err', 'Enter a new password.');
-
-    const resetToken = localStorage.getItem('vpn_reset_token');
-
-    try {
-      // If we have a reset token from verify, use it directly
-      if (resetToken) {
-        const res = await fetch(OAUTH + '/user/reset-password', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ resetToken, newPassword }),
-        });
-        const data = await res.json();
-        if (!res.ok) return showMsg('reset-msg', 'err', data.error || 'Reset failed');
-        localStorage.removeItem('vpn_reset_token');
-        showMsg('reset-msg', 'ok', 'Password reset! You can now log in.');
-        setTimeout(() => showAuthTab('login'), 1500);
-        return;
-      }
-
-      // Otherwise verify the code first
-      const verifyRes = await fetch(OAUTH + '/user/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: pendingEmail, code }),
-      });
-      const verifyData = await verifyRes.json();
-      if (!verifyRes.ok || !verifyData.resetToken) return showMsg('reset-msg', 'err', 'Invalid code');
-
-      const res = await fetch(OAUTH + '/user/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resetToken: verifyData.resetToken, newPassword }),
-      });
-      const data = await res.json();
-      if (!res.ok) return showMsg('reset-msg', 'err', data.error || 'Reset failed');
-      showMsg('reset-msg', 'ok', 'Password reset! You can now log in.');
-      setTimeout(() => showAuthTab('login'), 1500);
-    } catch (e) {
-      showMsg('reset-msg', 'err', 'Connection failed');
-    }
-  }
-
-  // ── Admin login (API key) ──────────────────────────────────────────
-
-  function adminLogin() {
-    const key = document.getElementById('api-key-input').value.trim();
-    if (!key) return showMsg('admin-msg', 'err', 'API key required.');
-    authToken = key;
-    authType = 'admin';
-    localStorage.setItem('vpn_token', key);
-    localStorage.setItem('vpn_auth_type', 'admin');
-    enterApp();
-  }
-
-  // ── Enter app / logout ─────────────────────────────────────────────
-
   async function enterApp() {
-    const ok = await fetchStatus();
-    if (ok) {
+    try {
+      const res = await apiFetch('/api/me');
+      if (!res.ok) return;
+      const data = await res.json();
+      currentUser = data.user;
       document.getElementById('auth-section').style.display = 'none';
       document.getElementById('app').style.display = 'block';
-
-      // Show admin features
-      if (authType === 'admin') {
-        document.getElementById('admin-status').style.display = 'block';
-        document.getElementById('user-info').innerHTML = '<strong>Admin</strong>';
-      } else {
-        document.getElementById('admin-status').style.display = 'none';
-        // Get user info
-        try {
-          const res = await apiFetch('/api/me');
-          const data = await res.json();
-          if (data.user) {
-            currentUser = data.user;
-            document.getElementById('user-info').innerHTML = '<strong>' + (data.user.name || data.user.email) + '</strong>';
-          }
-        } catch {}
-      }
+      document.getElementById('admin-status').style.display = 'block';
+      document.getElementById('user-info').textContent = 'Administrator · ' + currentUser.email;
       loadAll();
-    } else {
-      showMsg(authType === 'admin' ? 'admin-msg' : 'login-msg', 'err', 'Invalid credentials or server unreachable.');
-      authToken = '';
-      authType = '';
-      localStorage.removeItem('vpn_token');
-      localStorage.removeItem('vpn_auth_type');
-    }
+    } catch { showMsg('login-msg','err','Unable to contact the server. Please retry.'); }
   }
-
-  function logout() {
-    authToken = '';
-    authType = '';
-    currentUser = null;
-    localStorage.removeItem('vpn_token');
-    localStorage.removeItem('vpn_auth_type');
-    document.getElementById('auth-section').style.display = '';
-    document.getElementById('app').style.display = 'none';
-  }
-
-  // ── API fetch wrapper ──────────────────────────────────────────────
-
-  function apiFetch(path, opts = {}) {
-    const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
-    if (authType === 'admin') {
-      headers['x-api-key'] = authToken;
-    } else {
-      headers['Authorization'] = 'Bearer ' + authToken;
-    }
-    return fetch(path, { ...opts, headers });
+  async function logout() {
+    try {
+      const res = await apiFetch('/api/auth/logout',{method:'POST'});
+      if (!res.ok) throw Error('Logout failed');
+      window.location.reload();
+    } catch { alert('Sign-out failed. Please retry.'); }
   }
 
   // ── Status ─────────────────────────────────────────────────────────
@@ -541,25 +218,29 @@
 
   // ── Peers ──────────────────────────────────────────────────────────
 
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
   async function loadPeers() {
     const res = await apiFetch('/api/peers');
+    if (!res.ok) throw Error('Unable to load peers');
     const list = await res.json();
     const el = document.getElementById('peers-list');
-    if (!list.length) { el.innerHTML = '<div style="color:var(--muted);font-size:.85rem">No peers yet. Create one above.</div>'; return; }
-    el.innerHTML = list.map(p => `
-      <div class="peer-row">
-        <div class="peer-info">
-          <div class="name">${p.name}</div>
-          <div class="meta">${p.ip} &nbsp;·&nbsp; ${p.pubKey.substring(0, 20)}...</div>
-        </div>
-        <div class="peer-actions">
-          <button class="btn-muted" onclick="viewConfig('${p.name}')">Config</button>
-          <button class="btn-danger" onclick="removePeer('${p.name}')">Remove</button>
-        </div>
-      </div>`).join('');
+    el.replaceChildren();
+    if (!list.length) { el.textContent = 'No devices yet. Create one above.'; return; }
+    for (const p of list) {
+      const row=document.createElement('div'); row.className='peer-row';
+      const info=document.createElement('div'); info.className='peer-info';
+      info.textContent=p.name + ' · ' + p.ip;
+      row.append(info);
+      for (const [label,action] of [['Config',()=>viewConfig(p.name)],['Remove',()=>removePeer(p.name)]]) {
+        const button=document.createElement('button');button.textContent=label;button.className='btn-muted';button.addEventListener('click',action);row.append(button);
+      }
+      el.append(row);
+    }
   }
 
-  function loadAll() { fetchStatus(); loadPeers(); }
+  function loadAll() { fetchStatus(); loadPeers().catch(()=>{document.getElementById('peers-list').textContent='Unable to load devices. Please refresh to retry.';}); }
 
   async function addPeer() {
     const name = document.getElementById('peer-name').value.trim();
@@ -570,22 +251,22 @@
     const res = await apiFetch('/api/peers', { method: 'POST', body: JSON.stringify({ name }) });
     const data = await res.json();
     btn.disabled = false; btn.textContent = '+ Add Peer';
-    if (!res.ok) { msgEl.innerHTML = `<div class="msg err">${data.error}</div>`; return; }
-    msgEl.innerHTML = `<div class="msg ok">Peer "${name}" created at ${data.ip}</div>`;
+    if (!res.ok) { msgEl.textContent = data.error; return; }
+    msgEl.textContent = `Device "${name}" created at ${data.ip}`;
     document.getElementById('peer-name').value = '';
     showModal(data.name, data.config, data.qr);
     loadAll();
   }
 
   async function viewConfig(name) {
-    const res = await apiFetch(`/api/peers/${name}/config`, { headers: { Accept: 'application/json' } });
+    const res = await apiFetch(`/api/peers/${encodeURIComponent(name)}/config`, { headers: { Accept: 'application/json' } });
     const d = await res.json();
     showModal(name, d.config, d.qr);
   }
 
   async function removePeer(name) {
     if (!confirm(`Remove peer "${name}"?`)) return;
-    await apiFetch(`/api/peers/${name}`, { method: 'DELETE' });
+    await apiFetch(`/api/peers/${encodeURIComponent(name)}`, { method: 'DELETE' });
     loadAll();
   }
 
@@ -609,40 +290,8 @@
   }
 
   function downloadApp(platform) {
-    // For mobile, try server-hosted copy first, fall back to app store
-    const fallbacks = {
-      ios: 'https://apps.apple.com/app/wireguard/id1441195209',
-      android: 'https://play.google.com/store/apps/details?id=com.wireguard.android',
-    };
-
-    // Build auth query param
-    const authParam = authType === 'admin'
-      ? 'key=' + encodeURIComponent(authToken)
-      : 'token=' + encodeURIComponent(authToken);
-
-    // Try downloading from our server
-    const url = '/api/download/' + platform + '?' + authParam;
-
-    // For desktop, just download directly
-    if (!fallbacks[platform]) {
-      const a = document.createElement('a');
-      a.href = url;
-      a.click();
-      return;
-    }
-
-    // For mobile, check if we host the file, otherwise redirect to store
-    fetch('/api/download/' + platform + '?' + authParam, { method: 'HEAD' })
-      .then(res => {
-        if (res.ok) {
-          const a = document.createElement('a');
-          a.href = url;
-          a.click();
-        } else {
-          window.open(fallbacks[platform], '_blank');
-        }
-      })
-      .catch(() => window.open(fallbacks[platform], '_blank'));
+    const stores = {ios:'https://apps.apple.com/app/wireguard/id1441195209',android:'https://play.google.com/store/apps/details?id=com.wireguard.android'};
+    window.location.assign(stores[platform] || 'https://www.wireguard.com/install/');
   }
 
   function copyConfig() {
@@ -656,28 +305,16 @@
   // ── Helpers ────────────────────────────────────────────────────────
 
   function showMsg(id, type, text) {
-    document.getElementById(id).innerHTML = `<div class="msg ${type}">${text}</div>`;
+    document.getElementById(id).textContent = text;
   }
 
-  // ── Auto-login from stored token ───────────────────────────────────
-
-  (function autoLogin() {
-    const token = localStorage.getItem('vpn_token');
-    const type = localStorage.getItem('vpn_auth_type');
-    if (token && type) {
-      authToken = token;
-      authType = type;
-      enterApp();
-    }
-  })();
-
-  // ── Enter key support ──────────────────────────────────────────────
-
-  document.getElementById('login-password').addEventListener('keydown', e => { if (e.key === 'Enter') emailLogin(); });
-  document.getElementById('verify-code').addEventListener('keydown', e => { if (e.key === 'Enter') verify(); });
-  document.getElementById('api-key-input').addEventListener('keydown', e => { if (e.key === 'Enter') adminLogin(); });
-  document.getElementById('forgot-email').addEventListener('keydown', e => { if (e.key === 'Enter') forgotPassword(); });
-  document.getElementById('reset-password').addEventListener('keydown', e => { if (e.key === 'Enter') resetPassword(); });
+  // Remove credentials left by the old browser login implementation.
+  ['vpn_token','vpn_auth_type','vpn_reset_token'].forEach(key => localStorage.removeItem(key));
+  if (new URLSearchParams(location.search).has('token')) history.replaceState({},'',location.pathname);
+  enterApp();
+  fetch('/api/auth/config').then(r=>r.json()).then(c=>{
+    if(!c.enabled) showMsg('login-msg','err','Proxy login needs deployment configuration. See docs/OAUTH_ADMIN.md.');
+  }).catch(()=>{});
 </script>
 <footer style="text-align:center;padding:2rem 1rem 1rem;color:var(--muted);font-size:.75rem">
   This VPN is created by Xiangen Hu for his colleagues.

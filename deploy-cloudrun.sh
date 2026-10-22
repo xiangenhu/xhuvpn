@@ -43,7 +43,7 @@ gcloud run deploy "$SERVICE" \
   --service-account "$SA_EMAIL" \
   --allow-unauthenticated \
   --port 8080 \
-  --set-env-vars "\
+  --update-env-vars "\
 GCS_BUCKET=$BUCKET,\
 GCE_HOST=$VM_IP,\
 GCE_USER=$VM_USER,\

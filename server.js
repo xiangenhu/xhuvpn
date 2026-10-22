@@ -41,7 +41,7 @@ const SSH_KEY_SECRET  = process.env.SSH_KEY_SECRET  || 'vpn-ssh-private-key';
 const API_KEY_SECRET  = process.env.API_KEY_SECRET  || 'vpn-api-secret';
 
 // OAuth gateway
-const OAUTH_GATEWAY   = process.env.OAUTH_GATEWAY || 'https://oauth.xiangenhu.info';
+const OAUTH_GATEWAY   = process.env.OAUTH_GATEWAY || 'https://oauth.skoonline.org';
 
 // ── Secret Manager ─────────────────────────────────────────────────────────
 const secretCache = {};
@@ -193,45 +193,22 @@ function nextClientIP(peers) {
   throw new Error('IP pool exhausted');
 }
 
-// ── Auth Middleware ────────────────────────────────────────────────────────
-// Supports two auth methods:
-//   1. API key (x-api-key header or ?key=) → admin access (all peers)
-//   2. Bearer token from OAuth gateway    → user access (own peers only)
-
-async function auth(req, res, next) {
-  try {
-    // Try API key first (admin)
-    const apiKey = req.headers['x-api-key'] || req.query.key;
-    if (apiKey) {
-      const expected = await getSecret(API_KEY_SECRET);
-      if (apiKey === expected) {
-        req.authType = 'admin';
-        return next();
-      }
-    }
-
-    // Try Bearer token (user via OAuth gateway) — header or ?token= query param
-    const bearerToken = (req.headers.authorization && req.headers.authorization.startsWith('Bearer '))
-      ? req.headers.authorization.slice(7)
-      : req.query.token;
-    if (bearerToken) {
-      const token = bearerToken;
-      const userRes = await fetch(`${OAUTH_GATEWAY}/auth/userinfo`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (userRes.ok) {
-        const { user } = await userRes.json();
-        req.authType = 'user';
-        req.user = user; // { email, name, picture, provider }
-        return next();
-      }
-    }
-
-    return res.status(401).json({ error: 'Unauthorized' });
-  } catch (e) {
-    res.status(500).json({ error: 'Auth service unavailable', detail: e.message });
+// Browser sessions and PKCE state are encrypted at rest in the private GCS bucket.
+const { createOAuth } = require('./lib/oauth');
+const authRecords = {
+  async put(name, value) { await storage.bucket(GCS_BUCKET).file(name).save(value, {resumable:false, metadata:{cacheControl:'no-store'}, preconditionOpts:{ifGenerationMatch:0}}); },
+  async get(name) { const [data] = await storage.bucket(GCS_BUCKET).file(name).download(); return data.toString(); },
+  async take(name) {
+    const file = storage.bucket(GCS_BUCKET).file(name);
+    const [meta] = await file.getMetadata();
+    const [data] = await storage.bucket(GCS_BUCKET).file(name, {generation:meta.generation}).download();
+    await file.delete({ifGenerationMatch:meta.generation});
+    return data.toString();
   }
-}
+};
+const oauth = createOAuth({records:authRecords});
+oauth.mount(app);
+const auth = oauth.auth;
 
 // ── Helpers: per-user filtering ───────────────────────────────────────────
 
@@ -249,7 +226,7 @@ function canAccessPeer(peer, req) {
 
 // GET /api/me — get current user info
 app.get('/api/me', auth, (req, res) => {
-  if (req.authType === 'admin') return res.json({ authType: 'admin' });
+  if (req.authType === 'admin') return res.json({ authType: 'admin', user: req.user });
   res.json({ authType: 'user', user: req.user });
 });
 
@@ -277,7 +254,7 @@ app.get('/api/peers', auth, async (req, res) => {
 // POST /api/peers  { name: "alice" }
 app.post('/api/peers', auth, async (req, res) => {
   const { name } = req.body;
-  if (!name) return res.status(400).json({ error: 'name required' });
+  if (typeof name !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(name)) return res.status(400).json({ error: 'Use 1–64 letters, numbers, underscores or hyphens for the device name' });
 
   const peers = await readPeers();
   if (peers.find(p => p.name === name))

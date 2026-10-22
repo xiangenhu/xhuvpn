@@ -5,3 +5,7 @@ npm-debug.log
 README.md
 .git
 .gitignore
+
+gcs-key.json
+**/*key*.json
+.env.*
