@@ -141,19 +141,21 @@
     <button class="btn-muted" id="retry-sync">Retry VPN synchronization</button>
   </section>
   <div class="section">
-    <h2>Set up a device</h2>
-    <p>1. Choose your device. 2. Create its profile. 3. Import the file or scan the QR code in WireGuard.</p>
+    <h2>Set up this device</h2>
+    <p>Install WireGuard once, then create and import your personal profile. No commands or manual keys are needed.</p>
+    <p><a class="btn-muted" href="https://www.wireguard.com/install/" target="_blank" rel="noopener">1. Download WireGuard</a></p>
     <label for="device-platform">Device type</label>
     <select id="device-platform"><option value="windows">Windows</option><option value="mac">Mac</option><option value="mobile">iPhone / iPad / Android</option><option value="linux">Linux</option></select>
     <div class="row">
-      <input type="text" id="peer-name" placeholder="peer name (e.g. my-laptop)" />
-      <button class="btn-primary" id="add-btn" onclick="addPeer()">Create device profile</button>
+      <input type="text" id="peer-name" aria-label="Device name" placeholder="Device name (e.g. My-Windows)" />
+      <button class="btn-primary" id="add-btn" onclick="addPeer()">2. Create my profile</button>
     </div>
     <div id="add-msg"></div>
   </div>
 
   <div class="section">
     <h2>My devices</h2>
+    <p>Turn the VPN on or off in WireGuard. Removing a device here revokes its server access; it does not turn off the tunnel on that device.</p>
     <div id="peers-list">Loading...</div>
   </div>
 
@@ -197,14 +199,15 @@
       <img id="modal-qr" src="" alt="QR" width="200" height="200" />
       <p>Scan with WireGuard app on iPhone or Android</p>
     </div>
-    <pre id="modal-config"></pre>
+    <details id="config-details"><summary>Advanced: view configuration</summary><pre id="modal-config"></pre></details>
     <div class="row">
-      <button class="btn-primary" onclick="downloadConfig()">Download .conf</button>
+      <button class="btn-primary" onclick="downloadConfig()">3. Download my profile</button>
       <button class="btn-muted" onclick="copyConfig(this)">Copy</button>
       <button class="btn-muted" onclick="checkConnection(currentPeerName)">Check connection</button>
       <button class="btn-muted" onclick="closeModal()">Close</button>
     </div>
     <p id="connection-result" role="status"></p>
+    <p>After importing, use WireGuard’s on/off switch whenever you need the VPN. Keep this profile on one device; create a separate profile for each additional device.</p>
   </div>
 </div>
 
@@ -213,6 +216,15 @@
   let isAdmin = false;
   let currentConfig = '';
   let currentPeerName = '';
+  const devicePlatform=document.getElementById('device-platform');
+  const ua=navigator.userAgent;
+  devicePlatform.value=/Android|iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints>1) ? 'mobile' : /Mac/i.test(ua) ? 'mac' : /Linux/i.test(ua) ? 'linux' : 'windows';
+  function suggestDeviceName() {
+    const suffix=Array.from(crypto.getRandomValues(new Uint8Array(3)),b=>b.toString(16).padStart(2,'0')).join('');
+    document.getElementById('peer-name').value='My-'+devicePlatform.options[devicePlatform.selectedIndex].text.split(' / ')[0].replace(/[^A-Za-z0-9]/g,'')+'-'+suffix;
+  }
+  suggestDeviceName();
+  devicePlatform.addEventListener('change',suggestDeviceName);
   document.getElementById('email-signin').addEventListener('submit',async event=>{
     event.preventDefault();const button=event.currentTarget.querySelector('button');button.disabled=true;
     try {
@@ -299,10 +311,10 @@
     try {
       const data = await jsonRequest('/api/peers',{name});
       msgEl.textContent = `Device "${name}" created at ${data.ip}`;
-      document.getElementById('peer-name').value = '';
+      suggestDeviceName();
       showModal(data.name, data.config, data.qr);
     } catch(e) { msgEl.textContent=e.message; }
-    finally {btn.disabled=false;btn.textContent='Create device profile';loadAll();}
+    finally {btn.disabled=false;btn.textContent='2. Create my profile';loadAll();}
   }
 
   async function viewConfig(name) {
@@ -314,7 +326,7 @@
   }
 
   async function removePeer(name) {
-    if(!confirm(`Remove device "${name}"?`))return;
+    if(!confirm(`Revoke VPN access for "${name}"? If its tunnel is active, turn it off in WireGuard to restore normal internet access.`))return;
     try {
       const res=await apiFetch(`/api/peers/${encodeURIComponent(name)}`,{method:'DELETE'});
       const data=await res.json();if(!res.ok)throw Error(data.error || 'Unable to remove device');
@@ -330,6 +342,7 @@
       : platform==='linux' ? 'Download this profile and import it using your Linux network manager’s WireGuard import option. Activate it, then check the connection.'
       : 'Download the .conf file. In WireGuard choose Add tunnel → Import from file, select the downloaded file, then Activate. Return here to check the connection.';
     document.getElementById('connection-result').textContent='';
+    document.getElementById('config-details').open=false;
     currentPeerName = name; currentConfig = config;
     document.getElementById('modal-title').textContent = `${name}.conf`;
     document.getElementById('modal-config').textContent = config;
@@ -338,7 +351,12 @@
     document.getElementById('config-modal').classList.add('open');
   }
 
-  function closeModal() { document.getElementById('config-modal').classList.remove('open'); }
+  function closeModal() {
+    document.getElementById('config-modal').classList.remove('open');
+    document.getElementById('modal-config').textContent='';
+    document.getElementById('modal-qr').removeAttribute('src');
+    currentConfig='';currentPeerName='';
+  }
 
   async function importDevices(button) {
     button.disabled=true;
@@ -359,7 +377,8 @@
   function downloadConfig() {
     const blob = new Blob([currentConfig], { type: 'text/plain' });
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob); a.download = `${currentPeerName}.conf`; a.click();
+    const url=URL.createObjectURL(blob);a.href=url;a.download=`${currentPeerName}.conf`;a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
   }
 
   function downloadApp(platform) {
