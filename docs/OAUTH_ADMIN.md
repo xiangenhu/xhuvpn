@@ -43,6 +43,14 @@ The old custom desktop installer relied on API-key access and is incompatible wi
 
 ## State migration and deployment
 
+### Guided device setup
+
+The dashboard now offers a device type selector, file/QR instructions and a per-device connection check. Creation checks the running server identity, forwarding and startup enablement before allocating an address. `SERVER_ENDPOINT` must match `GCE_HOST` (the VPN VM address, not the Cloud Run dashboard). Profiles use /32 device addresses, MTU 1380 and full-tunnel routes. IPv6 is routed into the tunnel to prevent bypass; IPv6 internet forwarding is not provisioned by this change.
+
+Before creating devices on an existing installation, the owner clicks **Import existing devices**. This adopts public keys and /32 addresses without needing client private keys. Existing imported devices retain their original profiles; their private keys cannot be recovered from the server, so re-download is unavailable. Newly created dashboard profiles have downloads and QR codes. Previously managed keys removed from records are not re-imported. A synchronization guard refuses to erase unknown manual peers or replace a running server with a different identity.
+
+After importing, create a Windows profile, download/import/activate it, and use **Check connection**. A recent handshake proves peer contact, not browsing or DNS; verify a website on the device. Repeat with a phone QR profile. No SSH commands are required for routine device provisioning after deployment is configured. The current changes are tested locally with mocked cloud/SSH services; live deployment, OAuth secret setup, and end-to-end device verification remain required.
+
 The first read imports the existing `peers.json` into `vpn-state.json` without removing the old file. Thereafter `vpn-state.json` is authoritative for users, hashed invitations and peers. GCS generation preconditions prevent concurrent invitation redemption or device updates from overwriting one another. Back up both files before deployment. Do not roll back to the old application with its stale `peers.json`: that could restore revoked devices. An intentional rollback must first export the current authoritative peer list.
 
 The VM now needs `bash`, `flock`, `base64`, `wg`, and `wg-quick`, plus the existing sudo permission. Synchronization uses a root lock and GCS-generation marker to prevent an older concurrent update from restoring disabled devices. An unsuccessful SSH command is reported as a failed synchronization. No live cloud deployment or real VPN connection has been performed by these tests.

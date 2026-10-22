@@ -114,6 +114,8 @@
   <div class="section" id="admin-status" style="display:none">
     <h2>Server Status</h2>
     <div class="card"><pre id="wg-status">Loading...</pre></div>
+    <button class="btn-muted" onclick="importDevices(this)">Import existing devices</button>
+    <p id="import-status" role="status">Use once to preserve devices previously added manually. Their existing files keep working.</p>
   </div>
 
   <section class="section" id="admin-members" hidden>
@@ -130,16 +132,19 @@
     <button class="btn-muted" id="retry-sync">Retry VPN synchronization</button>
   </section>
   <div class="section">
-    <h2>Add Peer</h2>
+    <h2>Set up a device</h2>
+    <p>1. Choose your device. 2. Create its profile. 3. Import the file or scan the QR code in WireGuard.</p>
+    <label for="device-platform">Device type</label>
+    <select id="device-platform"><option value="windows">Windows</option><option value="mac">Mac</option><option value="mobile">iPhone / iPad / Android</option><option value="linux">Linux</option></select>
     <div class="row">
       <input type="text" id="peer-name" placeholder="peer name (e.g. my-laptop)" />
-      <button class="btn-primary" id="add-btn" onclick="addPeer()">+ Add Peer</button>
+      <button class="btn-primary" id="add-btn" onclick="addPeer()">Create device profile</button>
     </div>
     <div id="add-msg"></div>
   </div>
 
   <div class="section">
-    <h2>My Peers</h2>
+    <h2>My devices</h2>
     <div id="peers-list">Loading...</div>
   </div>
 
@@ -177,6 +182,8 @@
 <div class="modal-overlay" id="config-modal">
   <div class="modal">
     <h3 id="modal-title">Peer Config</h3>
+    <p id="setup-instructions"></p>
+    <p><a href="https://www.wireguard.com/install/" target="_blank" rel="noopener">Install the official WireGuard app</a>. Keep this profile private and use it on one device.</p>
     <div class="modal-qr-section">
       <img id="modal-qr" src="" alt="QR" width="200" height="200" />
       <p>Scan with WireGuard app on iPhone or Android</p>
@@ -185,8 +192,10 @@
     <div class="row">
       <button class="btn-primary" onclick="downloadConfig()">Download .conf</button>
       <button class="btn-muted" onclick="copyConfig(this)">Copy</button>
+      <button class="btn-muted" onclick="checkConnection(currentPeerName)">Check connection</button>
       <button class="btn-muted" onclick="closeModal()">Close</button>
     </div>
+    <p id="connection-result" role="status"></p>
   </div>
 </div>
 
@@ -255,7 +264,7 @@
       const info=document.createElement('div'); info.className='peer-info';
       info.textContent=p.name + ' · ' + p.ip;
       row.append(info);
-      for (const [label,action] of [['Config',()=>viewConfig(p.name)],['Remove',()=>removePeer(p.name)]]) {
+      for (const [label,action] of [['Setup / download',()=>viewConfig(p.name)],['Check connection',()=>checkConnection(p.name)],['Remove',()=>removePeer(p.name)]]) {
         const button=document.createElement('button');button.textContent=label;button.className='btn-muted';button.addEventListener('click',action);row.append(button);
       }
       el.append(row);
@@ -269,14 +278,14 @@
     const msgEl = document.getElementById('add-msg');
     const btn = document.getElementById('add-btn');
     if (!name) { msgEl.innerHTML = '<div class="msg err">Name required.</div>'; return; }
-    btn.disabled = true; btn.textContent = 'Creating...';
+    btn.disabled = true; btn.textContent = 'Checking server and registering device…';
     try {
       const data = await jsonRequest('/api/peers',{name});
       msgEl.textContent = `Device "${name}" created at ${data.ip}`;
       document.getElementById('peer-name').value = '';
       showModal(data.name, data.config, data.qr);
     } catch(e) { msgEl.textContent=e.message; }
-    finally {btn.disabled=false;btn.textContent='+ Add Peer';loadAll();}
+    finally {btn.disabled=false;btn.textContent='Create device profile';loadAll();}
   }
 
   async function viewConfig(name) {
@@ -298,6 +307,12 @@
   // ── Modal ──────────────────────────────────────────────────────────
 
   function showModal(name, config, qr) {
+    const platform=document.getElementById('device-platform').value;
+    document.getElementById('setup-instructions').textContent=platform==='mobile'
+      ? 'In WireGuard, tap + and scan this QR code from another screen, or download this file and import it on this device. Activate the tunnel, then check the connection.'
+      : platform==='linux' ? 'Download this profile and import it using your Linux network manager’s WireGuard import option. Activate it, then check the connection.'
+      : 'Download the .conf file. In WireGuard choose Add tunnel → Import from file, select the downloaded file, then Activate. Return here to check the connection.';
+    document.getElementById('connection-result').textContent='';
     currentPeerName = name; currentConfig = config;
     document.getElementById('modal-title').textContent = `${name}.conf`;
     document.getElementById('modal-config').textContent = config;
@@ -307,6 +322,22 @@
   }
 
   function closeModal() { document.getElementById('config-modal').classList.remove('open'); }
+
+  async function importDevices(button) {
+    button.disabled=true;
+    const el=document.getElementById('import-status');el.textContent='Reading existing devices and saving them…';
+    try {const d=await jsonRequest('/api/admin/import-devices',{});el.textContent=`Imported ${d.imported} devices. Existing profiles are preserved.`;loadAll();}
+    catch(e){el.textContent=e.message;}finally{button.disabled=false;}
+  }
+  async function checkConnection(name) {
+    try {
+      const res=await apiFetch(`/api/peers/${encodeURIComponent(name)}/connection`);
+      const d=await res.json();if(!res.ok)throw Error(d.error || 'Connection check failed');
+      const message=d.recentHandshake ? 'The VPN server received a recent handshake from this device. Open a website on that device to confirm browsing.' : 'No recent handshake. Activate this profile in WireGuard, then check again.';
+      if(document.getElementById('config-modal').classList.contains('open')) document.getElementById('connection-result').textContent=message;
+      else alert(name+': '+message);
+    }catch(e){alert(e.message);}
+  }
 
   function downloadConfig() {
     const blob = new Blob([currentConfig], { type: 'text/plain' });
