@@ -2,6 +2,10 @@
 
 Approved users can choose WireGuard or a remote browser from the dashboard. The browser mode uses Kasm Workspaces' documented public developer API. It is not an HTTP rewriting proxy and does not affect ordinary browser tabs or other applications. WireGuard remains independently controlled on the user's device.
 
+Browser-only is the default for a new browser; an explicitly saved WireGuard preference is retained. After approval and research-use consent, sign-in automatically starts or reopens the research browser when the service is configured. Returning with the existing eight-hour authenticated cookie avoids another sign-in. This is session restoration, not authentication based on an IP address or a WireGuard handshake.
+
+**Turn off & sign out** requests remote-session destruction and then revokes the current portal login. Ordinary Logout also requests browser cleanup when enabled. If cleanup fails, the portal retains login so the user can retry. Accepted shutdown can still take time on the browser server. Closing the tab, session idle expiry, and the local WireGuard switch do not automatically revoke the portal cookie; those events are not equivalent to this explicit off action. A new device or expired login still requires authentication, even when WireGuard is on.
+
 ## Deployment required
 
 Provision an isolated Kasm browser service with a valid HTTPS origin, a browser workspace image and a server-side API key with the documented User and Users Auth Session permissions. Configure:

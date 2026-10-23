@@ -196,15 +196,16 @@
   <section class="section">
     <h2>How would you like to connect?</h2>
     <label for="connection-mode">Connection mode</label>
-    <select id="connection-mode"><option value="wireguard">Whole device — WireGuard</option><option value="browser">Browser only — no installation</option></select>
+    <select id="connection-mode"><option value="browser">Browser only — no installation (default)</option><option value="wireguard">Whole device — WireGuard</option></select>
     <p>You can change this choice anytime. Changing modes here does not turn off WireGuard; use its on/off switch.</p>
     <p>Created by Xiangen Hu for colleagues and research teams. Research use only. Do not distribute access without permission. You are responsible for your internet activity and improper use.</p>
   </section>
   <section id="browser-panel" class="section" hidden>
     <h2>Research browser</h2>
     <p>Only websites opened inside this remote browser use its server connection. Your ordinary tabs and other apps are unaffected. End the session when finished.</p>
-    <button class="btn-primary" id="browser-start">Start / open browser</button>
-    <button class="btn-muted" id="browser-stop">End session</button>
+    <p>Sign in once to open your research browser automatically. Return with a valid login to reopen it. Turn off &amp; sign out when finished; next time you will need to sign in again.</p>
+    <button class="btn-primary" id="browser-start">Turn on / reopen browser</button>
+    <button class="btn-muted" id="browser-stop">Turn off &amp; sign out</button>
     <p id="browser-status" role="status"></p>
     <iframe id="research-browser" title="Private research browser" referrerpolicy="no-referrer" allow="fullscreen; clipboard-read; clipboard-write" style="width:100%;height:75vh;border:0" hidden></iframe>
   </section>
@@ -308,22 +309,24 @@
   let isAdmin = false;
   let currentConfig = '';
   let currentPeerName = '';
-  let noticeVersion='';let browserPoll=0;
+  let noticeVersion='';let browserPoll=0;let browserAvailable=false;
   const mode=document.getElementById('connection-mode');
   function chooseMode() {
     document.getElementById('wireguard-panel').hidden=mode.value!=='wireguard';
     document.getElementById('browser-panel').hidden=mode.value!=='browser';
     localStorage.setItem('vpn_connection_mode',mode.value);
   }
-  mode.value=localStorage.getItem('vpn_connection_mode')==='browser'?'browser':'wireguard';
+  mode.value=localStorage.getItem('vpn_connection_mode')==='wireguard'?'wireguard':'browser';
   mode.addEventListener('change',chooseMode);chooseMode();
   document.getElementById('save-consent').addEventListener('click',async()=>{
     if(!document.getElementById('accept-notice').checked) {document.getElementById('consent-status').textContent='Please check the agreement box to continue.';return;}
     try {await jsonRequest('/api/consent',{version:noticeVersion,accept:true});await enterApp();}
     catch(e){document.getElementById('consent-status').textContent=e.message;}
   });
-  document.getElementById('browser-start').addEventListener('click',async event=>{
-    const button=event.currentTarget;button.disabled=true;const poll=++browserPoll;
+  async function openResearchBrowser() {
+    const button=document.getElementById('browser-start');
+    if(button.disabled)return;
+    button.disabled=true;const poll=++browserPoll;
     const message=document.getElementById('browser-status');
     try {
       let result=await jsonRequest('/api/browser/status',{});
@@ -331,7 +334,7 @@
       for(let attempt=0;attempt<30 && poll===browserPoll;attempt++) {
         if(result.status==='running') {
           const frame=document.getElementById('research-browser');frame.src=result.url;frame.hidden=false;
-          message.textContent='Browser ready. End the session when finished.';return;
+          message.textContent='Browser on — only websites inside this research browser use its connection.';return;
         }
         if(result.status!=='starting') {message.textContent=result.message || 'Session is ending. Try again shortly.';return;}
         message.textContent='Starting your private browser…';
@@ -341,12 +344,13 @@
       }
       message.textContent='Still starting. Choose Start / open browser again to check; a second session will not be created.';
     }catch(e){message.textContent=e.message;}finally{button.disabled=false;}
-  });
-  document.getElementById('browser-stop').addEventListener('click',async()=>{
+  }
+  document.getElementById('browser-start').addEventListener('click',openResearchBrowser);
+  document.getElementById('browser-stop').addEventListener('click',()=>logout(true));
+  async function stopResearchBrowser() {
     ++browserPoll;const frame=document.getElementById('research-browser');frame.src='about:blank';frame.hidden=true;
-    try {await jsonRequest('/api/browser/stop',{});document.getElementById('browser-status').textContent='Session shutdown requested. The server may need a moment to finish cleanup.';}
-    catch(e){document.getElementById('browser-status').textContent=e.message;}
-  });
+    await jsonRequest('/api/browser/stop',{});
+  }
   const devicePlatform=document.getElementById('device-platform');
   const ua=navigator.userAgent;
   devicePlatform.value=/Android|iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints>1) ? 'mobile' : /Mac/i.test(ua) ? 'mac' : /Linux/i.test(ua) ? 'linux' : 'windows';
@@ -388,6 +392,7 @@
       document.getElementById('consent-section').hidden=data.accepted;
       if(!data.accepted){document.getElementById('app').style.display='none';return;}
       document.getElementById('browser-start').disabled=!data.browserEnabled;
+      browserAvailable=data.browserEnabled;
       document.getElementById('browser-stop').disabled=!data.browserEnabled;
       if(!data.browserEnabled) document.getElementById('browser-status').textContent='Browser-only mode is awaiting server setup. You can use WireGuard meanwhile.';
       document.getElementById('app').style.display = 'block';
@@ -395,14 +400,17 @@
       document.getElementById('admin-members').hidden = !isAdmin;
       document.getElementById('user-info').textContent = (isAdmin?'Administrator · ':'Member · ') + currentUser.email;
       loadAll();
+      if(data.browserEnabled && mode.value==='browser') void openResearchBrowser();
     } catch { showMsg('login-msg','err','Unable to contact the server. Please retry.'); }
   }
-  async function logout() {
+  async function logout(stopBrowser=false) {
     try {
+      // Do not silently sign out when shutdown failed: retain access to retry cleanup.
+      if(stopBrowser || browserAvailable) await stopResearchBrowser();
       const res = await apiFetch('/api/auth/logout',{method:'POST'});
       if (!res.ok) throw Error('Logout failed');
       window.location.reload();
-    } catch { alert('Sign-out failed. Please retry.'); }
+    } catch { alert('Could not complete browser shutdown and sign-out. Please retry; your server session may still be running.'); }
   }
   document.getElementById('request-approval').addEventListener('click',async event=>{
     const button=event.currentTarget;button.disabled=true;
