@@ -640,7 +640,7 @@
   if (new URLSearchParams(location.search).has('token')) history.replaceState({},'',location.pathname);
   enterApp();
   fetch('/api/auth/config').then(r=>r.json()).then(c=>{
-    if(!c.enabled) showMsg('login-msg','err','Proxy login needs deployment configuration. See docs/OAUTH_ADMIN.md.');
+    if(!c.enabled) showMsg('login-msg','err','Sign-in is not available yet. Please contact Xiangen Hu for help, or try again later.');
   }).catch(()=>{});
 </script>
 <footer style="text-align:center;padding:2rem 1rem 1rem;color:var(--muted);font-size:.75rem">

@@ -1,6 +1,21 @@
 # WireGuard VPN Manager — Cloud Run Edition
 ### Node.js · Cloud Run · Google Cloud Storage · GCE VM (WireGuard)
 
+## Sign-in setup (administrator)
+
+If the homepage says **“Sign-in is not available yet”**, the deployed portal is missing required authentication settings. Visitors do not need to configure anything; the administrator must complete setup.
+
+Check these settings on the Cloud Run revision serving `vpn.skoonline.org`:
+
+- `APP_URL=https://vpn.skoonline.org` (no trailing slash).
+- `PROXY_CLIENT_ID`: the client ID registered with SKO.
+- `PROXY_CLIENT_SECRET`: that client's secret, supplied through Secret Manager.
+- `SESSION_ENCRYPTION_KEY`: a separate random 64-character hexadecimal value, supplied through Secret Manager.
+
+Register the exact OAuth callback `https://vpn.skoonline.org/api/auth/oauth/callback` with SKO. Follow [administrator login setup](docs/OAUTH_ADMIN.md#activate) for deployment commands, storage permissions and secret handling. Never commit credentials or ask users to enter deployment secrets.
+
+After updating configuration, deploy a new revision and check `/api/auth/config`: `enabled: true` means the required local settings are present, **not** that SKO authentication has been verified. Test an actual sign-in separately. Browser-only hosting has its own [setup instructions](docs/BROWSER_ONLY.md); enabling login does not provision that service.
+
 ---
 
 ## Architecture
