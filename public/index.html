@@ -45,6 +45,28 @@
     .msg.ok{background:#052e16;color:#4ade80;border:1px solid #166534}
     .msg.err{background:#2d0a0a;color:#f87171;border:1px solid #7f1d1d}
 
+    /* Access approval */
+    #approval-section{max-width:640px;margin:clamp(16px,6vh,64px) auto;background:linear-gradient(145deg,#152736,#111b2b);border:1px solid #34485b;border-radius:24px;padding:clamp(22px,5vw,44px);box-shadow:0 24px 80px #0003}
+    .approval-brand{display:flex;align-items:center;gap:12px;color:#c2d4e2;font-size:13px;margin-bottom:30px}
+    .approval-check{display:inline-flex;align-items:center;gap:8px;color:#9ce8ce;background:#183d35;border:1px solid #306052;border-radius:999px;padding:7px 12px;font-size:12px;margin-bottom:16px}
+    #approval-section h2{font-size:clamp(26px,4vw,34px);letter-spacing:-.035em;line-height:1.2;margin-bottom:12px}
+    #approval-identity{color:#c3d2e2;font-size:14px;overflow-wrap:anywhere;margin-bottom:12px}
+    .approval-intro{color:#aebed0;font-size:15px;line-height:1.7;margin-bottom:26px}
+    .approval-step{border-top:1px solid #34475a;padding:24px 0}
+    .approval-step h3{font-size:16px;display:flex;align-items:center;gap:12px;margin-bottom:12px}
+    .approval-step h3 span{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#253a49;color:#9ce8ce;font-size:13px;flex-shrink:0}
+    .approval-step p{color:#aebed0;font-size:14px;line-height:1.65;margin-bottom:16px}
+    #approval-section button{min-height:46px;border-radius:10px;padding:12px 18px}
+    #request-approval{width:100%;background:#263f4e;border:1px solid #4b6875;color:#e3f4ef}
+    #approval-section label{display:block;font-size:13px;color:#c3d2e2;margin-bottom:9px}
+    #approval-code{display:block;width:100%;min-width:0;padding:14px;background:#0c1726;border:1px solid #52677b;border-radius:10px;font-family:var(--mono);font-size:15px;color:var(--text);margin-bottom:12px}
+    #approval-code::placeholder{color:#95a7ba;font-family:var(--sans)}
+    #submit-approval{width:100%}
+    #approval-status:not(:empty){padding:16px;border-radius:12px;background:#192e3b;border:1px solid #3b586b;color:#d4e7ef;font-size:14px;line-height:1.7;margin-bottom:22px;overflow-wrap:anywhere}
+    .approval-footer{display:flex;justify-content:space-between;align-items:center;gap:16px;border-top:1px solid #34475a;padding-top:20px}
+    .approval-footer p{font-size:12px;color:#aebed0;line-height:1.6}
+    @media(max-width:480px){body{padding:16px}.approval-footer{align-items:flex-start;flex-direction:column}}
+
     /* Auth section */
     .auth-container{max-width:400px;margin:4rem auto}
     .auth-container h2{margin-bottom:.5rem;font-size:1.2rem}
@@ -168,15 +190,25 @@
 </div>
 
 <section id="approval-section" class="auth-container" hidden>
-  <h2>Request your VPN access code</h2>
+  <div class="approval-brand"><span class="brand-mark" aria-hidden="true">胡</span>Xiangen’s Research Network</div>
+  <div class="approval-check"><span aria-hidden="true">✓</span> Email verified</div>
+  <h2>You’re one step away.</h2>
   <p id="approval-identity"></p>
-  <p>Your SKO account is verified, but you do not yet have VPN access. Request your personal access code from Xiangen Hu (xiangenhu@gmail.com), then enter it below to unlock the research browser and device setup.</p>
-  <button class="btn-primary" id="request-approval">Request code from administrator</button>
-  <label for="approval-code">Administrator’s invitation code</label>
-  <input id="approval-code" autocomplete="off" placeholder="Paste your invitation code">
+  <p class="approval-intro">Welcome! Your account is ready. This is a private network for colleagues and research teams, so Xiangen needs to approve your access before you can connect.</p>
+  <div class="approval-step">
+  <h3><span aria-hidden="true">1</span> Ask Xiangen for access</h3>
+  <p>Send a request below. Once approved, you’ll receive a personal invitation code.</p>
+  <button class="btn-muted" id="request-approval">Request my access code</button>
+  </div>
+  <div class="approval-step">
+  <h3><span aria-hidden="true">2</span> Already have your code?</h3>
+  <label for="approval-code">Your personal invitation code</label>
+  <input type="text" id="approval-code" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Paste the code Xiangen sent you">
   <button class="btn-primary" id="submit-approval">Verify code &amp; continue</button>
-  <p id="approval-status" role="status"></p>
-  <button class="btn-muted" onclick="logout()">Sign out</button>
+  </div>
+  <p id="approval-status" role="status" aria-live="polite"></p>
+  <div class="approval-footer"><p>Need a hand? <a href="mailto:xiangenhu@gmail.com">Contact Xiangen</a><br>For colleagues and research teams · Research use only</p>
+  <button class="btn-muted" onclick="logout()">Sign out</button></div>
 </section>
 
 <section id="consent-section" class="auth-container" hidden>
@@ -417,7 +449,8 @@
     const button=event.currentTarget;button.disabled=true;
     try {
       const result=await jsonRequest('/api/access/request',{});
-      document.getElementById('approval-status').textContent=result.emailStatus==='sent' ? 'Your request is in the admin dashboard and an email notification was accepted. Enter the code when the administrator sends it.' : result.emailStatus==='already-requested' ? 'Your request is already in the admin dashboard. Please wait for your code.' : 'Your request is saved in the admin dashboard. Email delivery could not be confirmed; you can also contact the administrator directly.';
+      button.textContent='✓ Access requested';
+      document.getElementById('approval-status').textContent=result.emailStatus==='sent' ? 'Request saved. We’ve notified Xiangen by email. When he shares your code, paste it above to continue.' : result.emailStatus==='already-requested' ? 'Your request is already saved. No need to send it again—enter your code above when Xiangen shares it.' : 'Your request is saved for Xiangen to review. We couldn’t confirm the email notification, so you can also use Contact Xiangen below.';
     }catch(e){document.getElementById('approval-status').textContent=e.message;button.disabled=false;}
   });
   document.getElementById('submit-approval').addEventListener('click',async event=>{
