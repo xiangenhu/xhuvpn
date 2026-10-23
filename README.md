@@ -8,7 +8,7 @@ If the homepage says **“Sign-in is not available yet”**, the deployed portal
 Check these settings on the Cloud Run revision serving `vpn.skoonline.org`:
 
 - `APP_URL=https://vpn.skoonline.org` (no trailing slash).
-- `PROXY_CLIENT_ID`: the client ID registered with SKO.
+- `PROXY_CLIENT_ID`: `xhuvpn` for the built-in vpn.skoonline.org handshake, or a separately registered SKO client ID. See docs/OAUTH_ADMIN.md.
 - `PROXY_CLIENT_SECRET`: that client's secret, supplied through Secret Manager.
 - `SESSION_ENCRYPTION_KEY`: a separate random 64-character hexadecimal value, supplied through Secret Manager.
 

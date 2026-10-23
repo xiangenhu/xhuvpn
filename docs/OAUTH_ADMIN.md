@@ -14,7 +14,7 @@ The administrator selects **Prepare invitation**, reviews the address and genera
 
 Approval unlocks browser setup, not a local VPN connection. Users import their profile once and activate the tunnel in WireGuard. The website cannot silently start an installed WireGuard client.
 
-Enable `smtp` for client `xhuvpn` in proxy Administration. The backend uses the same `PROXY_CLIENT_ID` / `PROXY_CLIENT_SECRET` with the documented `/genai/services/smtp/send` endpoint. Selecting **Also email this invitation through SKO** explicitly sends the generated invitation to that recipient. A stable request ID accompanies the send. Unconfirmed delivery is displayed without automatic retries; the invitation remains available to copy. No test email is sent by loading the page.
+The built-in VPN handshake includes SMTP with a 20-message hourly quota. For a separately registered client, enable `smtp` in proxy Administration. The backend uses the same `PROXY_CLIENT_ID` / `PROXY_CLIENT_SECRET` with the documented `/genai/services/smtp/send` endpoint. Selecting **Also email this invitation through SKO** explicitly sends the generated invitation to that recipient. A stable request ID accompanies the send. Unconfirmed delivery is displayed without automatic retries; the invitation remains available to copy. No test email is sent by loading the page.
 
 These changes have mocked authentication/mail coverage, not live account verification or delivery confirmation. Deployment must verify the actual proxy response includes explicit email verification, configure the client's SMTP permission and secrets, and test sign-in with the account owner. Never weaken verification to compensate for missing gateway assertions.
 
@@ -31,9 +31,10 @@ Google sign-in, invitation delivery and VPN connectivity are separate. The porta
 
 ## Activate
 
-1. In https://oauth.skoonline.org/genai/#administration, register client `xhuvpn`, enable OAuth, and register the exact callback `https://YOUR_VPN_PORTAL/api/auth/oauth/callback`.
+1. For `https://vpn.skoonline.org`, no proxy admin-page registration is required after deploying the built-in VPN support from `xiangenhu/hulogingatway`. Generate a private 32-byte random hex credential (`openssl rand -hex 32`) and store it in Secret Manager. Mount the same value as `XHUVPN_CLIENT_SECRET` on the OAuth gateway and `PROXY_CLIENT_SECRET` on the VPN service. Never commit or expose the value. The gateway trusts only `https://vpn.skoonline.org/api/auth/oauth/callback`; it grants OAuth and SMTP (20 messages/hour), with no GenAI access. Missing or malformed gateway credentials disable this built-in integration. Existing explicit `xhuvpn` registrations take precedence, including their disabled status and rotated secrets. If one already exists, use its credentials or deliberately remove it before activating the built-in integration.
+   For a different VPN portal hostname, use normal client registration and register its exact callback instead. No wildcard subdomain trust is provided.
 2. Configure `APP_URL` as that HTTPS portal origin (no path or trailing slash), and `PROXY_CLIENT_ID=xhuvpn`.
-3. Store the proxy-generated client secret in Secret Manager; mount it as `PROXY_CLIENT_SECRET`. Generate a separate 32-byte random hex value (`openssl rand -hex 32`), store it securely, and mount it as `SESSION_ENCRYPTION_KEY`. Never put either secret in Git or the browser.
+3. Store the shared credential (or proxy-generated secret for a registered client) in Secret Manager; mount it as `PROXY_CLIENT_SECRET`. Generate a separate 32-byte random hex value (`openssl rand -hex 32`), store it securely, and mount it as `SESSION_ENCRYPTION_KEY`. Never put either secret in Git or the browser.
 4. Keep the configured GCS bucket private. Its existing service account needs object read/create/delete permissions for `auth/`. Configure a lifecycle deletion rule scoped ONLY to prefix `auth/` to remove records older than one day. Do not apply this rule to peers or server keys. Application expiry is enforced independently.
 5. Deploy and sign in using the owner's Google account. Verify an uninvited account is denied, then invite a friend and confirm they cannot access administration. Verify device creation/config download/removal against the actual VM.
 
@@ -45,7 +46,7 @@ gcloud run services update vpn-manager --region us-central1 \
   --update-secrets PROXY_CLIENT_SECRET=xhuvpn-proxy-secret:latest,SESSION_ENCRYPTION_KEY=xhuvpn-session-key:latest
 ```
 
-Grant the runtime service account access to these secrets first. New secret versions require a new Cloud Run revision. Rotating the session key invalidates existing logins. Rotating the proxy client secret requires updating its Secret Manager value and redeploying; existing app sessions last up to eight hours, so rotate the session key too to invalidate them immediately.
+Grant the runtime service account access to these secrets first. New secret versions require a new Cloud Run revision. Rotating the session key invalidates existing logins. Rotating the built-in credential requires updating both services and redeploying them; removing `XHUVPN_CLIENT_SECRET` from the gateway disables new built-in handshakes. Rotating a registered proxy client secret requires updating its Secret Manager value and redeploying; existing app sessions last up to eight hours, so rotate the session key too to invalidate them immediately.
 
 ## Implementation and checks
 
