@@ -313,7 +313,7 @@
       <input type="text" id="peer-name" aria-label="Device name" placeholder="Device name (e.g. My-Windows)" />
       <button class="btn-primary" id="add-btn" onclick="addPeer()">2. Create my profile</button>
     </div>
-    <div id="add-msg"></div>
+    <div id="add-msg" role="status" aria-live="polite" tabindex="-1"></div>
   </div>
 
   <div class="section">
@@ -548,15 +548,31 @@
     const name = document.getElementById('peer-name').value.trim();
     const msgEl = document.getElementById('add-msg');
     const btn = document.getElementById('add-btn');
+    if(btn.disabled) return;
     if (!name) { msgEl.innerHTML = '<div class="msg err">Name required.</div>'; return; }
     btn.disabled = true; btn.textContent = 'Checking server and registering device…';
+    msgEl.textContent='Creating your WireGuard profile: connecting to the VPN machine and checking setup. This can take up to 90 seconds. Please keep this page open.';
+    msgEl.scrollIntoView({block:'nearest',behavior:'smooth'});
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),90000);
     try {
-      const data = await jsonRequest('/api/peers',{name});
+      const data = await jsonRequest('/api/peers',{name},{signal:controller.signal});
+      if(typeof data.config!=='string' || !data.config.includes('[Interface]') || typeof data.name!=='string')
+        throw Error('The server did not return a downloadable profile. Check My devices before creating another profile.');
       msgEl.textContent = `Device "${name}" created at ${data.ip}`;
       suggestDeviceName();
       showModal(data.name, data.config, data.qr);
-    } catch(e) { msgEl.textContent=e.message; }
-    finally {btn.disabled=false;btn.textContent='2. Create my profile';loadAll();}
+      if(devicePlatform.value!=='mobile') {
+        downloadConfig();
+        msgEl.textContent=`Profile created. Your ${data.name}.conf download has started. If it does not appear in Downloads, use Download my profile in the setup window.`;
+      }
+    } catch(e) {
+      msgEl.textContent=controller.signal.aborted
+        ? 'Profile creation took too long. Check My devices below before trying again: the profile may already have been saved. Use Setup / download if it appears there.'
+        : e.message;
+      msgEl.focus();
+    }
+    finally {clearTimeout(timer);btn.disabled=false;btn.textContent='2. Create my profile';loadAll();}
   }
 
   async function viewConfig(name) {
@@ -641,9 +657,9 @@
     document.getElementById(id).textContent = text;
   }
 
-  async function jsonRequest(path,body) {
+  async function jsonRequest(path,body,options={}) {
     let response;
-    try {response=await apiFetch(path,body===undefined?{}:{method:'POST',body:JSON.stringify(body)});}
+    try {response=await apiFetch(path,{...options,...(body===undefined?{}:{method:'POST',body:JSON.stringify(body)})});}
     catch {throw Error('Unable to reach the service. Check your connection and try again.');}
     let result;
     try {result=await response.json();}

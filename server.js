@@ -16,7 +16,8 @@ process.env.PROXY_CLIENT_ID ??= 'xhuvpn';
 const express   = require('express');
 const path      = require('path');
 const crypto    = require('crypto');
-const {parseInventory,mergeInventory}=require('./lib/device-setup');
+const {parseInventory,mergeInventory,vpnEndpoint}=require('./lib/device-setup');
+const {withDeadline}=require('./lib/deadline');
 const qrcode    = require('qrcode');
 const { NodeSSH } = require('node-ssh');
 const { Storage } = require('@google-cloud/storage');
@@ -37,7 +38,7 @@ const GCE_HOST        = process.env.GCE_HOST;          // VM external IP or host
 const GCE_USER        = process.env.GCE_USER || 'ubuntu';
 const WG_INTERFACE    = process.env.WG_INTERFACE || 'wg0';
 const SERVER_PORT     = process.env.SERVER_PORT  || 51820;
-const SERVER_ENDPOINT = process.env.SERVER_ENDPOINT;   // your domain
+const SERVER_ENDPOINT = vpnEndpoint(GCE_HOST,process.env.SERVER_ENDPOINT,process.env.APP_URL);
 const VPN_SUBNET      = process.env.VPN_SUBNET   || '10.8.0';
 const API_PORT        = process.env.PORT          || 8080;  // Cloud Run uses PORT
 const GCP_PROJECT     = process.env.GOOGLE_CLOUD_PROJECT;
@@ -97,15 +98,23 @@ async function readPeers() { return (await stateStore.read()).value.peers; }
 
 // ── SSH to GCE VM ──────────────────────────────────────────────────────────
 async function connectSSH() {
-  const privateKey = await getSecret(SSH_KEY_SECRET);
+  let privateKey;
+  try {privateKey=await withDeadline(getSecret(SSH_KEY_SECRET),10000);}
+  catch {throw new AccessError(503,'Cannot load the VPN server connection key. Administrator: check Secret Manager access for the Cloud Run service.');}
   const ssh = new NodeSSH();
-  await ssh.connect({
+  try {await withDeadline(ssh.connect({
     host:       GCE_HOST,
     username:   GCE_USER,
     privateKey,
     readyTimeout: 10000
-  });
+  }),15000,()=>ssh.dispose());}
+  catch {ssh.dispose();throw new AccessError(503,'Cannot connect to the VPN machine. Administrator: check its address, SSH key, username and firewall.');}
   return ssh;
+}
+
+async function runSSH(ssh,command) {
+  try {return await withDeadline(ssh.execCommand(command),20000,()=>ssh.dispose());}
+  catch {throw new AccessError(503,'The VPN machine did not finish the setup check. Administrator: check WireGuard and password-free sudo access, then retry.');}
 }
 
 async function applyWireGuardConfig() {
@@ -148,7 +157,7 @@ printf '%s\\n' '${peers.map(p=>p.pubKey).join('\n')}' > /etc/wireguard/.xhuvpn-m
 `;
   const ssh=await connectSSH();
   try {
-    const result=await ssh.execCommand("printf '%s' '"+Buffer.from(script).toString('base64')+"' | base64 -d | sudo bash");
+    const result=await runSSH(ssh,"printf '%s' '"+Buffer.from(script).toString('base64')+"' | base64 -d | sudo -n bash");
     if(result.code!==0) throw Error('VPN synchronization failed; retry synchronization from the admin dashboard');
   } finally {ssh.dispose();}
   return pubKey;
@@ -243,8 +252,8 @@ async function serverInventory() {
   if(!SERVER_ENDPOINT || SERVER_ENDPOINT!==GCE_HOST) throw new AccessError(409,'Set the VPN endpoint to the VPN VM address before adding devices');
   const ssh=await connectSSH();
   try {
-    const result=await ssh.execCommand(`test "$(sysctl -n net.ipv4.ip_forward)" = 1 && systemctl is-enabled --quiet wg-quick@${WG_INTERFACE} && sudo wg show ${WG_INTERFACE} public-key && sudo wg show ${WG_INTERFACE} allowed-ips`);
-    if(result.code!==0) throw new AccessError(503,'Server setup needs attention: check WireGuard startup and IP forwarding');
+    const result=await runSSH(ssh,`test "$(sysctl -n net.ipv4.ip_forward)" = 1 && systemctl is-enabled --quiet wg-quick@${WG_INTERFACE} && sudo -n wg show ${WG_INTERFACE} public-key && sudo -n wg show ${WG_INTERFACE} allowed-ips`);
+    if(result.code!==0) throw new AccessError(503,'Server setup needs attention: check WireGuard startup, IP forwarding and password-free sudo access');
     const inventory=parseInventory(result.stdout,VPN_SUBNET);
     const keys=await gcsRead('server-keys.json');
     if(!keys || keys.pubKey!==inventory.publicKey) throw new AccessError(409,'Saved server identity does not match the running VPN. Existing connections have been preserved');
@@ -256,7 +265,7 @@ app.post('/api/admin/import-devices',auth,adminOnly,route(async(req,res)=>{
   // A peer previously managed then removed must never be adopted back as owner.
   const ssh=await connectSSH();let managed;
   try {
-    const result=await ssh.execCommand("sudo sh -c 'if [ -f /etc/wireguard/.xhuvpn-managed-peers ]; then cat /etc/wireguard/.xhuvpn-managed-peers; fi'");
+    const result=await runSSH(ssh,"sudo -n sh -c 'if [ -f /etc/wireguard/.xhuvpn-managed-peers ]; then cat /etc/wireguard/.xhuvpn-managed-peers; fi'");
     if(result.code!==0) throw new AccessError(503,'Cannot read prior device registrations; import stopped');
     managed=new Set(result.stdout.trim().split(/\s+/));
   } finally {ssh.dispose();}
@@ -271,7 +280,7 @@ app.get('/api/peers/:name/connection',auth,route(async(req,res)=>{
   if(!/^[A-Za-z0-9_-]{1,15}$/.test(WG_INTERFACE)) throw Error('Invalid interface');
   const ssh=await connectSSH();
   try {
-    const result=await ssh.execCommand(`sudo wg show ${WG_INTERFACE} latest-handshakes`);
+    const result=await runSSH(ssh,`sudo -n wg show ${WG_INTERFACE} latest-handshakes`);
     if(result.code!==0) throw Error('Unable to check connection');
     const line=result.stdout.split('\n').find(l=>l.split(/\s+/)[0]===peer.pubKey);
     const timestamp=Number(line?.trim().split(/\s+/)[1]) || 0;
@@ -331,7 +340,7 @@ app.post('/api/admin/reconcile', auth, adminOnly, route(async (req,res)=>{
 app.get('/api/status', auth, route(async (req, res) => {
   try {
     const ssh    = await connectSSH();
-    const result = await ssh.execCommand(`sudo wg show ${WG_INTERFACE}`);
+    const result = await runSSH(ssh,`sudo -n wg show ${WG_INTERFACE}`);
     ssh.dispose();
     if(result.code!==0) throw Error('WireGuard is unavailable');
     const peers  = await readPeers();

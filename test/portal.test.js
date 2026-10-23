@@ -8,7 +8,7 @@ test('HTTP portal: sole admin invites friend, friend cannot administer, disable 
  const serverKey='yBq5ZCvbOkpnai8JrC+qYiLrLIeit99QWiwW4ZGKbG0=';
  await bucket.file('server-keys.json').save(JSON.stringify({pubKey:serverKey,privKey:'test-only'}));
  const fakeProxy=async(url,options)=>{const body=JSON.parse(options.body);if(url.endsWith('/start'))lastState=body.state;return {ok:true,json:async()=>url.endsWith('/start')?{url:'https://oauth.skoonline.org/authorize'}:{user:{email:identity,provider:'google',email_verified:true}}};};
- const env={APP_URL:'https://vpn.example',PROXY_CLIENT_ID:'test',PROXY_CLIENT_SECRET:'test-only',SESSION_ENCRYPTION_KEY:'ab'.repeat(32),GCS_BUCKET:'test',GCE_HOST:'test',SERVER_ENDPOINT:'test',LOCAL_SECRET_vpn_ssh_private_key:'test-only'};
+ const env={APP_URL:'https://vpn.example',PROXY_CLIENT_ID:'test',PROXY_CLIENT_SECRET:'test-only',SESSION_ENCRYPTION_KEY:'ab'.repeat(32),GCS_BUCKET:'test',GCE_HOST:'test',SERVER_ENDPOINT:'vpn.example',LOCAL_SECRET_vpn_ssh_private_key:'test-only'};
  const filename=path.resolve(__dirname,'../server.js'),realRequire=createRequire(filename),moduleObj={exports:{}};
  const sandboxRequire=name=>{
    if(name==='dotenv')return {config(){}};
@@ -33,6 +33,7 @@ test('HTTP portal: sole admin invites friend, friend cannot administer, disable 
  for(const [url,body] of [['/api/admin/invitations',{email:'other@example.com'}],['/api/admin/users/disable',{email:'xiangenhu@gmail.com'}],['/api/admin/reconcile',{}]])assert.equal((await call(url,{cookie:friend.cookie,body})).status,403);
  const device=await call('/api/peers',{cookie:friend.cookie,body:{name:'friend-phone'}});assert.equal(device.status,201);
  const profile=await device.json();assert.match(profile.config,/Address\s*= 10\.8\.0\.2\/32/);assert.match(profile.config,/MTU\s*= 1380/);
+ assert.match(profile.config,/Endpoint\s*= test:51820/);assert.ok(!profile.config.includes('vpn.example'));
  assert.equal((await call('/api/admin/import-devices',{cookie:friend.cookie,body:{}})).status,403);
  assert.equal((await call('/api/admin/import-devices',{cookie:admin.cookie,body:{}})).status,200);
  const connection=await call('/api/peers/friend-phone/connection',{cookie:friend.cookie});assert.equal((await connection.json()).recentHandshake,false);
@@ -44,8 +45,8 @@ test('HTTP portal: sole admin invites friend, friend cannot administer, disable 
  const all=await (await call('/api/peers',{cookie:admin.cookie})).json();assert.equal(all.length,1);assert.equal(all[0].name,'owner-phone');
  sshFails=false;assert.equal((await call('/api/admin/reconcile',{cookie:admin.cookie,body:{}})).status,200);
  assert.equal((await call('/api/admin/users/disable',{cookie:admin.cookie,body:{email:'xiangenhu@gmail.com'}})).status,400);
- assert.ok(scripts.some(s=>s.includes('base64 -d | sudo bash')));
- for(const command of scripts.filter(s=>s.includes('base64 -d | sudo bash'))) {
+ assert.ok(scripts.some(s=>s.includes('base64 -d | sudo -n bash')));
+ for(const command of scripts.filter(s=>s.includes('base64 -d | sudo -n bash'))) {
    const script=Buffer.from(command.split("'")[3],'base64').toString();
    assert.equal(require('node:child_process').spawnSync('bash',['-n'],{input:script}).status,0);
  }

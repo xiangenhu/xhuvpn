@@ -1,6 +1,12 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
-const {parseInventory,mergeInventory}=require('../lib/device-setup');
+const {parseInventory,mergeInventory,vpnEndpoint}=require('../lib/device-setup');
+test('profile endpoint uses the VPN machine when setup used the portal address',()=>{
+ const vm='203.0.113.10',portal='https://vpn.skoonline.org';
+ for(const value of [undefined,'','vpn.skoonline.org',portal,portal+'/'])assert.equal(vpnEndpoint(vm,value,portal),vm);
+ assert.equal(vpnEndpoint(vm,vm,portal),vm);
+ assert.equal(vpnEndpoint(vm,'different-vm.example',portal),'different-vm.example');
+});
 const server='yBq5ZCvbOkpnai8JrC+qYiLrLIeit99QWiwW4ZGKbG0=';
 const phone='8vH2sSmzCKmf2D3gs+eSWe5J11xwWNZc2Xpz2Hak53M=';
 test('imports manual devices without private keys and is repeatable',()=>{
