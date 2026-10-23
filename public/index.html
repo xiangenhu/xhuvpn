@@ -647,6 +647,11 @@
   enterApp();
   fetch('/api/auth/config').then(r=>r.json()).then(c=>{
     if(!c.enabled) showMsg('login-msg','err','Sign-in is not available yet. Please contact Xiangen Hu for help, or try again later.');
+    if(c.googleLogin===false) {
+      document.querySelector('a[href="/api/auth/oauth/start"]').hidden=true;
+      document.getElementById('redeem-invite').hidden=true;
+      if(c.emailLogin) showMsg('login-msg','ok','Use your SKO email account below. If you have an invitation code, enter it before signing in.');
+    }
   }).catch(()=>{});
 </script>
 <footer style="text-align:center;padding:2rem 1rem 1rem;color:var(--muted);font-size:.75rem">

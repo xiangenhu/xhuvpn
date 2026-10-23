@@ -31,6 +31,22 @@ Google sign-in, invitation delivery and VPN connectivity are separate. The porta
 
 ## Activate
 
+### Email sign-in without client registration
+
+Existing verified SKO email/password accounts use the fixed gateway `/user/login`
+directly. They need only `APP_URL=https://vpn.skoonline.org` and a private
+`SESSION_ENCRYPTION_KEY` (32 random bytes encoded as 64 hex characters) on the
+VPN service, plus working GCS access. Google client credentials are not required
+for email authentication. SMTP notification delivery still requires credentials;
+the administrator dashboard retains access requests even if notification fails.
+New email accounts enter the invitation approval screen, not the device dashboard.
+
+If `/api/auth/config` reports `emailLogin:false`, VPN deployment configuration is
+incomplete; that response does not mean the submitted account or password is wrong.
+After configuring deployment, confirm `emailLogin:true` and test sign-in.
+
+### Google sign-in and SMTP
+
 1. For `https://vpn.skoonline.org`, no proxy admin-page registration is required after deploying the built-in VPN support from `xiangenhu/hulogingatway`. Generate a private 32-byte random hex credential (`openssl rand -hex 32`) and store it in Secret Manager. Mount the same value as `XHUVPN_CLIENT_SECRET` on the OAuth gateway and `PROXY_CLIENT_SECRET` on the VPN service. Never commit or expose the value. The gateway trusts only `https://vpn.skoonline.org/api/auth/oauth/callback`; it grants OAuth and SMTP (20 messages/hour), with no GenAI access. Missing or malformed gateway credentials disable this built-in integration. Existing explicit `xhuvpn` registrations take precedence, including their disabled status and rotated secrets. If one already exists, use its credentials or deliberately remove it before activating the built-in integration.
    For a different VPN portal hostname, use normal client registration and register its exact callback instead. No wildcard subdomain trust is provided.
 2. Configure `APP_URL` as that HTTPS portal origin (no path or trailing slash), and `PROXY_CLIENT_ID=xhuvpn`.

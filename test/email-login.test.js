@@ -2,17 +2,27 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const {createOAuth}=require('../lib/oauth');
 const {createAccess}=require('../lib/access');
-function fixture() {
+function fixture(extra={}) {
  const routes={},data=new Map();let state={users:{},invites:{},peers:[]},calls=0;
  const access=createAccess({origin:'https://vpn.example',store:{read:async()=>({value:state}),update:async fn=>{const copy=structuredClone(state);const result=fn(copy);state=copy;return result;}}});
- const env={APP_URL:'https://vpn.example',PROXY_CLIENT_ID:'test',PROXY_CLIENT_SECRET:'test',SESSION_ENCRYPTION_KEY:'aa'.repeat(32)};
+ const env={APP_URL:'https://vpn.example',PROXY_CLIENT_ID:'test',PROXY_CLIENT_SECRET:'test',SESSION_ENCRYPTION_KEY:'aa'.repeat(32),...extra};
  let reply={token:'server-only-token',user:{email:'xiangenhu@gmail.com',emailVerified:true}};
  const oauth=createOAuth({env,access,records:{put:async(k,v)=>{if(data.has(k))throw Object.assign(Error(),{code:412});data.set(k,v);},get:async k=>data.get(k)},fetchImpl:async()=>{calls++;return {ok:true,json:async()=>reply};}});
  oauth.mount({get:(p,h)=>routes[p]=h,post:(p,h)=>routes[p]=h});
  function response(){return {code:200,cookies:[],set(){},append(k,v){this.cookies.push(v)},status(n){this.code=n;return this},sendStatus(n){this.code=n;return this},json(body){this.body=body;return this}};}
  async function login(email='xiangenhu@gmail.com',origin=env.APP_URL){const res=response(),req={headers:{origin,'x-vpn-request':'1'},body:{email,password:'test-password'}};await routes['/api/auth/email/login'](req,res);return res;}
- return {login,access,oauth,response,data,setReply:r=>reply=r,calls:()=>calls,state:()=>state};
+ return {login,access,oauth,response,data,routes,setReply:r=>reply=r,calls:()=>calls,state:()=>state};
 }
+test('email sign-in and session work without OAuth client registration',async()=>{
+ const f=fixture({PROXY_CLIENT_ID:'',PROXY_CLIENT_SECRET:''}),config=f.response();
+ f.routes['/api/auth/config']({},config);
+ assert.deepEqual(config.body,{enabled:true,emailLogin:true,googleLogin:false});
+ const res=await f.login();assert.equal(res.code,200);
+ let passed=false;
+ await f.oauth.auth({headers:{cookie:res.cookies[0].split(';')[0]},method:'GET'},f.response(),()=>passed=true);
+ assert.equal(passed,true);
+ assert.equal((await fixture({SESSION_ENCRYPTION_KEY:''}).login()).code,503);
+});
 test('verified SMTP owner signs in as sole admin without storing password or proxy token',async()=>{
  const f=fixture(),res=await f.login();assert.equal(res.code,200);
  const req={headers:{cookie:res.cookies[0].split(';')[0]},method:'GET'};let passed=false;
