@@ -9,6 +9,9 @@
  */
 
 require('dotenv').config();
+// Public defaults for this portal; credentials must still come from the runtime.
+process.env.APP_URL ??= 'https://vpn.skoonline.org';
+process.env.PROXY_CLIENT_ID ??= 'xhuvpn';
 
 const express   = require('express');
 const path      = require('path');

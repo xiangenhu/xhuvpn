@@ -7,6 +7,14 @@ If the homepage says **“Sign-in is not available yet”**, the deployed portal
 
 Check these settings on the Cloud Run revision serving `vpn.skoonline.org`:
 
+The server defaults to `APP_URL=https://vpn.skoonline.org` and
+`PROXY_CLIENT_ID=xhuvpn`. Explicit environment values override these defaults.
+The deployment script mounts `xhuvpn-proxy-secret` as `PROXY_CLIENT_SECRET` and
+`xhuvpn-session-key` as `SESSION_ENCRYPTION_KEY`. Provision both private secrets
+before deploying; the script checks that they exist before building. Override
+resource names with `PROXY_SECRET_NAME` and `SESSION_SECRET_NAME` if needed.
+The registered OAuth secret is not included in the repository.
+
 - `APP_URL=https://vpn.skoonline.org` (no trailing slash).
 - `PROXY_CLIENT_ID`: `xhuvpn` for the built-in vpn.skoonline.org handshake, or a separately registered SKO client ID. See docs/OAUTH_ADMIN.md.
 - `PROXY_CLIENT_SECRET`: that client's secret, supplied through Secret Manager.
