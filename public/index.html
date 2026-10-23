@@ -170,11 +170,11 @@
 <section id="approval-section" class="auth-container" hidden>
   <h2>Request your VPN access code</h2>
   <p id="approval-identity"></p>
-  <p>Your email is verified. Request a code from xiangenhu@gmail.com, then enter it below to continue to device setup.</p>
+  <p>Your SKO account is verified, but you do not yet have VPN access. Request your personal access code from Xiangen Hu (xiangenhu@gmail.com), then enter it below to unlock the research browser and device setup.</p>
   <button class="btn-primary" id="request-approval">Request code from administrator</button>
   <label for="approval-code">Administrator’s invitation code</label>
   <input id="approval-code" autocomplete="off" placeholder="Paste your invitation code">
-  <button class="btn-primary" id="submit-approval">Continue to device setup</button>
+  <button class="btn-primary" id="submit-approval">Verify code &amp; continue</button>
   <p id="approval-status" role="status"></p>
   <button class="btn-muted" onclick="logout()">Sign out</button>
 </section>
@@ -364,17 +364,17 @@
     event.preventDefault();const button=event.currentTarget.querySelector('button');button.disabled=true;
     try {
       await jsonRequest('/api/auth/email/login',{email:document.getElementById('signin-email').value,password:document.getElementById('signin-password').value,invite:document.getElementById('invite-code').value.trim() || undefined});
-      document.getElementById('signin-password').value='';window.location.assign('/');
+      document.getElementById('signin-password').value='';await enterApp(true);
     }catch(error){showMsg('login-msg','err',error.message);}
     finally{document.getElementById('signin-password').value='';button.disabled=false;}
   });
   async function apiFetch(path, opts = {}) {
     return fetch(path, {...opts, credentials:'same-origin', headers:{'Content-Type':'application/json','X-VPN-Request':'1',...(opts.headers || {})}});
   }
-  async function enterApp() {
+  async function enterApp(reportLoginFailure=false) {
     try {
       const res = await apiFetch('/api/me');
-      if (!res.ok) return;
+      if (!res.ok) {if(reportLoginFailure) showMsg('login-msg','err','Please sign in to continue. If you just signed in, make sure cookies are allowed and try again.');return;}
       const data = await res.json();
       currentUser = data.user;
       isAdmin = data.authType === 'admin';
@@ -384,6 +384,7 @@
         document.getElementById('approval-section').hidden=false;
         document.getElementById('approval-identity').textContent='Signed in as '+currentUser.email;
         document.getElementById('approval-code').value=document.getElementById('invite-code').value;
+        document.getElementById('request-approval').focus();
         return;
       }
       document.getElementById('approval-section').hidden=true;
@@ -569,8 +570,13 @@
   }
 
   async function jsonRequest(path,body) {
-    const response=await apiFetch(path,body===undefined?{}:{method:'POST',body:JSON.stringify(body)});
-    const result=await response.json();
+    let response;
+    try {response=await apiFetch(path,body===undefined?{}:{method:'POST',body:JSON.stringify(body)});}
+    catch {throw Error('Unable to reach the service. Check your connection and try again.');}
+    let result;
+    try {result=await response.json();}
+    catch {throw Error(response.status===403 ? 'This request could not be completed. Refresh the page and try again.' : 'The service is temporarily unavailable. Please try again later.');}
+    if(!result || typeof result!=='object') throw Error('The service returned an unexpected response. Please try again later.');
     if(!response.ok) throw Error(result.error || 'Request failed. Please retry.');
     return result;
   }
