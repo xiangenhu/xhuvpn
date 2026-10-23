@@ -94,6 +94,7 @@
 <!-- ── Auth Section ──────────────────────────────────────────────────── -->
 <div id="auth-section" class="auth-container">
   <h2>Private VPN administration</h2>
+  <p class="research-notice">Created by Xiangen Hu for his colleagues and research teams, for research purposes only. Do not distribute access without permission. Users are responsible for their internet activity and improper use.</p>
   <p class="subtitle">Administrator: xiangenhu@gmail.com only. Use Google or your verified SKO email account.</p>
   <a class="btn-primary" href="/api/auth/oauth/start">Sign in with Google via SKO</a>
   <form id="email-signin">
@@ -123,6 +124,13 @@
   <button class="btn-muted" onclick="logout()">Sign out</button>
 </section>
 
+<section id="consent-section" class="auth-container" hidden>
+  <h2>Research-use agreement</h2>
+  <p id="research-notice"></p>
+  <label><input type="checkbox" id="accept-notice"> I understand and agree to these conditions.</label>
+  <button class="btn-primary" id="save-consent">Continue</button>
+  <p id="consent-status" role="status"></p>
+</section>
 <div id="app">
   <header>
     <h1>VPN Manager</h1>
@@ -130,6 +138,21 @@
     <span class="user-info" id="user-info" style="margin-left:auto"></span>
     <button class="btn-muted" style="font-size:.75rem" onclick="logout()">Logout</button>
   </header>
+  <section class="section">
+    <h2>How would you like to connect?</h2>
+    <label for="connection-mode">Connection mode</label>
+    <select id="connection-mode"><option value="wireguard">Whole device — WireGuard</option><option value="browser">Browser only — no installation</option></select>
+    <p>You can change this choice anytime. Changing modes here does not turn off WireGuard; use its on/off switch.</p>
+    <p>Created by Xiangen Hu for colleagues and research teams. Research use only. Do not distribute access without permission. You are responsible for your internet activity and improper use.</p>
+  </section>
+  <section id="browser-panel" class="section" hidden>
+    <h2>Research browser</h2>
+    <p>Only websites opened inside this remote browser use its server connection. Your ordinary tabs and other apps are unaffected. End the session when finished.</p>
+    <button class="btn-primary" id="browser-start">Start / open browser</button>
+    <button class="btn-muted" id="browser-stop">End session</button>
+    <p id="browser-status" role="status"></p>
+    <iframe id="research-browser" title="Private research browser" referrerpolicy="no-referrer" allow="fullscreen; clipboard-read; clipboard-write" style="width:100%;height:75vh;border:0" hidden></iframe>
+  </section>
 
   <div class="section" id="admin-status" style="display:none">
     <h2>Server Status</h2>
@@ -153,7 +176,7 @@
     <p id="member-status" role="status"></p>
     <button class="btn-muted" id="retry-sync">Retry VPN synchronization</button>
   </section>
-  <div class="section">
+  <div id="wireguard-panel"><div class="section">
     <h2>Set up this device</h2>
     <p>Install WireGuard once, then create and import your personal profile. No commands or manual keys are needed.</p>
     <p><a class="btn-muted" href="https://www.wireguard.com/install/" target="_blank" rel="noopener">1. Download WireGuard</a></p>
@@ -202,6 +225,7 @@
   </div>
 </div>
 
+</div>
 <!-- ── Config Modal ──────────────────────────────────────────────────── -->
 <div class="modal-overlay" id="config-modal">
   <div class="modal">
@@ -229,6 +253,45 @@
   let isAdmin = false;
   let currentConfig = '';
   let currentPeerName = '';
+  let noticeVersion='';let browserPoll=0;
+  const mode=document.getElementById('connection-mode');
+  function chooseMode() {
+    document.getElementById('wireguard-panel').hidden=mode.value!=='wireguard';
+    document.getElementById('browser-panel').hidden=mode.value!=='browser';
+    localStorage.setItem('vpn_connection_mode',mode.value);
+  }
+  mode.value=localStorage.getItem('vpn_connection_mode')==='browser'?'browser':'wireguard';
+  mode.addEventListener('change',chooseMode);chooseMode();
+  document.getElementById('save-consent').addEventListener('click',async()=>{
+    if(!document.getElementById('accept-notice').checked) {document.getElementById('consent-status').textContent='Please check the agreement box to continue.';return;}
+    try {await jsonRequest('/api/consent',{version:noticeVersion,accept:true});await enterApp();}
+    catch(e){document.getElementById('consent-status').textContent=e.message;}
+  });
+  document.getElementById('browser-start').addEventListener('click',async event=>{
+    const button=event.currentTarget;button.disabled=true;const poll=++browserPoll;
+    const message=document.getElementById('browser-status');
+    try {
+      let result=await jsonRequest('/api/browser/status',{});
+      if(result.status==='none') {await jsonRequest('/api/browser/start',{});result={status:'starting'};}
+      for(let attempt=0;attempt<30 && poll===browserPoll;attempt++) {
+        if(result.status==='running') {
+          const frame=document.getElementById('research-browser');frame.src=result.url;frame.hidden=false;
+          message.textContent='Browser ready. End the session when finished.';return;
+        }
+        if(result.status!=='starting') {message.textContent=result.message || 'Session is ending. Try again shortly.';return;}
+        message.textContent='Starting your private browser…';
+        await new Promise(resolve=>setTimeout(resolve,2000));
+        if(poll!==browserPoll)return;
+        result=await jsonRequest('/api/browser/status',{});
+      }
+      message.textContent='Still starting. Choose Start / open browser again to check; a second session will not be created.';
+    }catch(e){message.textContent=e.message;}finally{button.disabled=false;}
+  });
+  document.getElementById('browser-stop').addEventListener('click',async()=>{
+    ++browserPoll;const frame=document.getElementById('research-browser');frame.src='about:blank';frame.hidden=true;
+    try {await jsonRequest('/api/browser/stop',{});document.getElementById('browser-status').textContent='Session shutdown requested. The server may need a moment to finish cleanup.';}
+    catch(e){document.getElementById('browser-status').textContent=e.message;}
+  });
   const devicePlatform=document.getElementById('device-platform');
   const ua=navigator.userAgent;
   devicePlatform.value=/Android|iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints>1) ? 'mobile' : /Mac/i.test(ua) ? 'mac' : /Linux/i.test(ua) ? 'linux' : 'windows';
@@ -265,6 +328,13 @@
         return;
       }
       document.getElementById('approval-section').hidden=true;
+      noticeVersion=data.noticeVersion;
+      document.getElementById('research-notice').textContent=data.notice;
+      document.getElementById('consent-section').hidden=data.accepted;
+      if(!data.accepted){document.getElementById('app').style.display='none';return;}
+      document.getElementById('browser-start').disabled=!data.browserEnabled;
+      document.getElementById('browser-stop').disabled=!data.browserEnabled;
+      if(!data.browserEnabled) document.getElementById('browser-status').textContent='Browser-only mode is awaiting server setup. You can use WireGuard meanwhile.';
       document.getElementById('app').style.display = 'block';
       document.getElementById('admin-status').style.display = isAdmin ? 'block' : 'none';
       document.getElementById('admin-members').hidden = !isAdmin;
@@ -461,8 +531,8 @@
       for(const user of rows) {
         const row=document.createElement('div');row.className='peer-row';
         const label=document.createElement('span');label.textContent=user.email+' · '+user.label+(user.deviceCount===undefined?'':' · '+user.deviceCount+' devices');row.append(label);
-        if(user.enabled) {
-          const button=document.createElement('button');button.className='btn-danger';button.textContent='Disable';
+        if(user.enabled || user.label==='Disabled') {
+          const button=document.createElement('button');button.className='btn-danger';button.textContent=user.enabled?'Disable':'Retry connection cleanup';
           button.addEventListener('click',async()=>{
             if(!confirm('Disable '+user.email+' and revoke all their VPN devices?')) return;
             button.disabled=true;

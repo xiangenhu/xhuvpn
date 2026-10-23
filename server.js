@@ -210,6 +210,9 @@ const authRecords = {
 const {createStateStore}=require('./lib/state-store');
 const {createAccess,AccessError}=require('./lib/access');
 const stateStore=createStateStore(storage.bucket(GCS_BUCKET));
+const remoteBrowser=require('./lib/remote-browser').createRemoteBrowser({store:stateStore});
+const NOTICE_VERSION='2026-10-23';
+const RESEARCH_NOTICE='This service was created by Xiangen Hu to support his colleagues and research teams for research purposes only. Do not share or distribute access, invitation codes, VPN profiles, or session links without Xiangen Hu’s permission. Users are responsible for their internet activity and any improper use of this service, and must comply with applicable laws and institutional policies.';
 const access=createAccess({store:stateStore,origin:process.env.APP_URL});
 const oauth = createOAuth({records:authRecords,access});
 oauth.mount(app);
@@ -273,10 +276,22 @@ app.get('/api/peers/:name/connection',auth,route(async(req,res)=>{
   } finally {ssh.dispose();}
 }));
 
-app.get('/api/me', auth, (req, res) => {
-  if (req.authType === 'admin') return res.json({ authType: 'admin', user: req.user });
-  res.json({ authType: req.authType, user: req.user });
+app.get('/api/me', auth, route(async(req, res) => {
+  const state=(await stateStore.read()).value;
+  res.json({authType:req.authType,user:req.user,notice:RESEARCH_NOTICE,noticeVersion:NOTICE_VERSION,accepted:state.consent?.[req.user.email]?.version===NOTICE_VERSION,browserEnabled:remoteBrowser.enabled});
+}));
+app.post('/api/consent',auth,route(async(req,res)=>{
+  if(req.body.version!==NOTICE_VERSION || req.body.accept!==true) throw new AccessError(400,'Please accept the current research-use notice');
+  await stateStore.update(s=>{s.consent ||= {};s.consent[req.user.email]={version:NOTICE_VERSION,acceptedAt:new Date().toISOString()};});
+  res.json({accepted:true});
+}));
+const requireConsent=route(async(req,res,next)=>{
+  if((await stateStore.read()).value.consent?.[req.user.email]?.version!==NOTICE_VERSION) throw new AccessError(403,'Accept the research-use notice before using the service');
+  next();
 });
+app.post('/api/browser/start',auth,requireConsent,route(async(req,res)=>res.json(await remoteBrowser.start(req.user.email))));
+app.post('/api/browser/status',auth,requireConsent,route(async(req,res)=>res.json(await remoteBrowser.status(req.user.email))));
+app.post('/api/browser/stop',auth,route(async(req,res)=>res.json(await remoteBrowser.stop(req.user.email))));
 app.post('/api/access/redeem',auth,route(async(req,res)=>{
   await access.redeem(req.user,req.body.code);
   res.json({approved:true});
@@ -301,8 +316,8 @@ app.post('/api/admin/invitations', auth, adminOnly, route(async (req,res)=>{
 }));
 app.post('/api/admin/users/disable', auth, adminOnly, route(async (req,res)=>{
   await access.disable(req.body.email);
-  try { await applyWireGuardConfig(); }
-  catch { return res.status(503).json({disabled:true,needsReconcile:true,error:'User disabled and portal access revoked. VPN server update failed; their existing tunnel may still work until you retry synchronization.'}); }
+  const outcomes=await Promise.allSettled([remoteBrowser.stop(req.body.email.trim().toLowerCase()),applyWireGuardConfig()]);
+  if(outcomes.some(r=>r.status==='rejected')) return res.status(503).json({disabled:true,needsReconcile:true,error:'Portal access revoked. One or more browser/VPN shutdown operations failed. Retry disabling this user; existing connections may remain until cleanup succeeds.'});
   res.json({disabled:true,needsReconcile:false});
 }));
 app.post('/api/admin/reconcile', auth, adminOnly, route(async (req,res)=>{
@@ -332,7 +347,7 @@ app.get('/api/peers', auth, route(async (req, res) => {
 }));
 
 // POST /api/peers  { name: "alice" }
-app.post('/api/peers', auth, route(async (req, res) => {
+app.post('/api/peers', auth, requireConsent, route(async (req, res) => {
   const { name } = req.body;
   if (typeof name !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(name)) return res.status(400).json({ error: 'Use 1–64 letters, numbers, underscores or hyphens for the device name' });
   const inventory=await serverInventory();
@@ -376,7 +391,7 @@ app.delete('/api/peers/:name', auth, route(async (req, res) => {
 }));
 
 // GET /api/peers/:name/config
-app.get('/api/peers/:name/config', auth, route(async (req, res) => {
+app.get('/api/peers/:name/config', auth, requireConsent, route(async (req, res) => {
   const peers = await readPeers();
   const peer  = peers.find(p => p.name === req.params.name);
   if (!peer) return res.status(404).json({ error: 'Peer not found' });

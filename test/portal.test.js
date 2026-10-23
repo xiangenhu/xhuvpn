@@ -23,9 +23,12 @@ test('HTTP portal: sole admin invites friend, friend cannot administer, disable 
  async function call(url,{cookie,body,method}={}){return fetch(base+url,{method:method || (body===undefined?'GET':'POST'),redirect:'manual',headers:{...(cookie?{cookie}:{}),'Content-Type':'application/json','Origin':env.APP_URL,'X-VPN-Request':'1'},...(body===undefined?{}:{body:JSON.stringify(body)})});}
  async function login(email,invite){identity=email;const start=await call('/api/auth/oauth/start',invite?{body:{invite}}:{});assert.equal(start.status,invite?200:302);const pending=start.headers.getSetCookie()[0].split(';')[0];const callback=await call('/api/auth/oauth/callback?code=one-use&state='+lastState,{cookie:pending});return {response:callback,cookie:callback.headers.getSetCookie().find(c=>c.startsWith('__Host-vpn-session'))?.split(';')[0]};}
  const admin=await login('xiangenhu@gmail.com');assert.equal(admin.response.status,302);
+ assert.equal((await call('/api/peers',{cookie:admin.cookie,body:{name:'before-consent'}})).status,403);
+ assert.equal((await call('/api/consent',{cookie:admin.cookie,body:{version:'2026-10-23',accept:true}})).status,200);
  const invited=await call('/api/admin/invitations',{cookie:admin.cookie,body:{email:'friend@example.com'}});assert.equal(invited.status,201);const invitation=await invited.json();
  const stranger=await login('stranger@example.com');assert.equal(stranger.response.status,403);
  const friend=await login('friend@example.com',invitation.code);assert.equal(friend.response.status,302);
+ assert.equal((await call('/api/consent',{cookie:friend.cookie,body:{version:'2026-10-23',accept:true}})).status,200);
  const me=await (await call('/api/me',{cookie:friend.cookie})).json();assert.equal(me.authType,'user');
  for(const [url,body] of [['/api/admin/invitations',{email:'other@example.com'}],['/api/admin/users/disable',{email:'xiangenhu@gmail.com'}],['/api/admin/reconcile',{}]])assert.equal((await call(url,{cookie:friend.cookie,body})).status,403);
  const device=await call('/api/peers',{cookie:friend.cookie,body:{name:'friend-phone'}});assert.equal(device.status,201);
