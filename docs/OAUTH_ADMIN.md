@@ -66,6 +66,20 @@ Grant the runtime service account access to these secrets first. New secret vers
 
 ## Implementation and checks
 
+### Google login fails while email login works
+
+Email login verifies the SKO account independently of the registered OAuth client. `googleLogin: true` at `/api/auth/config` means settings are present, not that the proxy accepted them. OAuth start failures now show a safe reference, also logged in Cloud Run:
+
+- `oauth_proxy_401`: check the issued client ID and current secret together.
+- `oauth_proxy_403`: check client enablement and OAuth permission.
+- `oauth_proxy_400`: check the exact registered OAuth callback and request contract.
+- Other `oauth_proxy_<status>`: the proxy returned that HTTP status.
+- `oauth_storage`: pending sign-in state could not be saved; check GCS access.
+- `oauth_response`: the returned URL was invalid or outside the trusted origin.
+- `oauth_proxy_unavailable`: transport, timeout or response parsing failed.
+
+These are diagnostic starting points; proxy logs establish the exact rejection reason. No credentials, response bodies or authorization URLs are logged. The callback must be `https://vpn.skoonline.org/api/auth/oauth/callback`. Deploy a new revision after changing Cloud Run settings or secrets.
+
 Uses the proxy's documented `/genai/services/oauth/start` and `/token` contract from https://oauth.skoonline.org/generalInstruction, retrieved 2026-10-22. PKCE and state are encrypted in GCS; the initiating browser receives only an opaque cookie. Pending records are consumed with a generation precondition. Sessions use AES-256-GCM and Secure/HttpOnly/SameSite cookies. Mutations check the exact origin and a custom request header. Proxy credentials remain on the backend. The authenticated token-exchange endpoint is the source of Google identity, not browser claims.
 
 Run `npm test` (16 checks, including real HTTP routes with simulated proxy, GCS, and SSH). These use a simulated proxy and record store; they do not establish that production client registration, Google sign-in, GCS permissions, or the VPN tunnel works. A real deployment/sign-in test remains required.

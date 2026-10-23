@@ -1,11 +1,21 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const {createOAuth}=require('../lib/oauth');
-function fixture(email='xiangenhu@gmail.com', extra={}) {
+test('OAuth rejection returns safe diagnostic JSON and a recovery link for browser navigation',async()=>{
+ for(const status of [400,401,403,500]) {
+  const f=fixture(undefined,{},status),res=f.response();
+  await f.routes['/api/auth/oauth/start']({method:'POST',headers:{origin:'https://vpn.example','x-vpn-request':'1'}},res);
+  assert.equal(res.code,502);assert.equal(res.body.code,'oauth_proxy_'+status);
+  assert.ok(!JSON.stringify(res.body).includes('secret'));assert.equal(res.cookies.length,0);
+  const page=f.response();await f.routes['/api/auth/oauth/start']({method:'GET'},page);
+  assert.match(page.body,/href="\/"/);assert.match(page.body,new RegExp('oauth_proxy_'+status));
+ }
+});
+function fixture(email='xiangenhu@gmail.com', extra={}, proxyFailure) {
  const routes={}, data=new Map(), calls=[];
  const env={APP_URL:'https://vpn.example',PROXY_CLIENT_ID:'xhuvpn',PROXY_CLIENT_SECRET:'test-secret',SESSION_ENCRYPTION_KEY:'ab'.repeat(32),...extra};
  const records={put:async(k,v)=>data.set(k,v),get:async k=>{if(!data.has(k))throw Error();return data.get(k);},take:async k=>{if(!data.has(k))throw Error();const v=data.get(k);data.delete(k);return v;}};
- const oauth=createOAuth({env,records,fetchImpl:async(url,options)=>{calls.push({url,options});return {ok:true,json:async()=>url.endsWith('/start')?{url:'https://oauth.skoonline.org/authorize'}:{user:{email,provider:'google',email_verified:true}}};}});
+ const oauth=createOAuth({env,records,fetchImpl:async(url,options)=>{calls.push({url,options});if(proxyFailure)return {ok:false,status:proxyFailure,json:async()=>({error:'secret response must not leak'})};return {ok:true,json:async()=>url.endsWith('/start')?{url:'https://oauth.skoonline.org/authorize'}:{user:{email,provider:'google',email_verified:true}}};}});
  oauth.mount({get:(p,h)=>routes[p]=h,post:(p,h)=>routes[p]=h});
  function response(){return {code:200,cookies:[],set(){return this},append(k,v){this.cookies.push(v);return this},status(n){this.code=n;return this},send(v){this.body=v;return this},sendStatus(n){this.code=n;return this},json(v){this.body=v;return this},redirect(v){this.redirected=v;return this}};}
  async function login(stateOverride){const start=response();await routes['/api/auth/oauth/start']({},start);const state=JSON.parse(calls[0].options.body).state;const req={headers:{cookie:start.cookies[0].split(';')[0]},query:{state:stateOverride || state,code:'single-code'}};const callback=response();await routes['/api/auth/oauth/callback'](req,callback);return {req,callback};}
