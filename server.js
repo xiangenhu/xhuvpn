@@ -18,6 +18,7 @@ const path      = require('path');
 const crypto    = require('crypto');
 const {parseInventory,preserveExistingDevices,vpnEndpoint}=require('./lib/device-setup');
 const {withDeadline}=require('./lib/deadline');
+const {profileStep}=require('./lib/profile-step');
 const qrcode    = require('qrcode');
 const { NodeSSH } = require('node-ssh');
 const { Storage } = require('@google-cloud/storage');
@@ -380,15 +381,15 @@ app.get('/api/peers', auth, route(async (req, res) => {
 app.post('/api/peers', auth, requireConsent, route(async (req, res) => {
   const { name } = req.body;
   if (typeof name !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(name)) return res.status(400).json({ error: 'Use 1–64 letters, numbers, underscores or hyphens for the device name' });
-  const inventory=await serverInventory();
+  const inventory=await profileStep('checking existing VPN devices',()=>serverInventory());
 
   // Generate outside the transaction; reserve quota, name and IP atomically below.
   const privateKey=crypto.generateKeyPairSync('x25519');
   const privKey=privateKey.privateKey.export({format:'der',type:'pkcs8'}).subarray(-32).toString('base64');
   const pubKey=privateKey.publicKey.export({format:'der',type:'spki'}).subarray(-32).toString('base64');
-  const {pubKey:serverPubKey}=await getOrCreateServerKeys();
+  const {pubKey:serverPubKey}=await profileStep('loading the VPN server identity',()=>getOrCreateServerKeys());
   const owner=req.authType==='user'?req.user.email:(req.body.owner || req.user.email);
-  const ip=await stateStore.update(state=>{
+  const ip=await profileStep('saving this device registration',()=>stateStore.update(state=>{
     if(req.authType==='user' && !state.users[owner]?.enabled) throw new AccessError(403,'Access revoked');
     if(state.users[owner]?.enabled===false) throw new AccessError(403,'User is disabled');
     if(owner!==req.user.email && !state.users[owner]?.enabled) throw new AccessError(400,'Choose an active invited user');
@@ -398,11 +399,12 @@ app.post('/api/peers', auth, requireConsent, route(async (req, res) => {
     const ip=nextClientIP(state.peers);
     state.peers.push({name,ip,pubKey,privKey,owner,createdAt:new Date().toISOString()});
     return ip;
-  });
+  }));
   try {await applyWireGuardConfig();} catch {return res.status(503).json({error:'Device saved, but VPN synchronization failed. Administrator must retry synchronization.',saved:true,needsReconcile:true});}
   const clientConf=buildClientConfig(privKey,ip,serverPubKey);
 
-  const qr = await qrcode.toDataURL(clientConf);
+  // A QR rendering failure must not prevent an already-created profile download.
+  let qr=null;try {qr=await qrcode.toDataURL(clientConf);}catch {}
   res.status(201).json({ name, ip, pubKey, config: clientConf, qr });
 }));
 

@@ -5,7 +5,7 @@ const {createRequire}=require('node:module');
 const {fakeBucket}=require('./fake-bucket');const {createOAuth}=require('../lib/oauth');
 test('HTTP portal: sole admin invites friend, friend cannot administer, disable revokes live session and peers',async t=>{
  const bucket=fakeBucket();let identity='xiangenhu@gmail.com',lastState,sshFails=false;const scripts=[];
- const manualKey='p'.repeat(43)+'=';
+ const manualKey='p'.repeat(43)+'=';let manualIP='10.8.0.2';
  const serverKey='yBq5ZCvbOkpnai8JrC+qYiLrLIeit99QWiwW4ZGKbG0=';
  await bucket.file('server-keys.json').save(JSON.stringify({pubKey:serverKey,privKey:'test-only'}));
  const fakeProxy=async(url,options)=>{const body=JSON.parse(options.body);if(url.endsWith('/start'))lastState=body.state;return {ok:true,json:async()=>url.endsWith('/start')?{url:'https://oauth.skoonline.org/authorize'}:{user:{email:identity,provider:'google',email_verified:true}}};};
@@ -15,7 +15,7 @@ test('HTTP portal: sole admin invites friend, friend cannot administer, disable 
    if(name==='dotenv')return {config(){}};
    if(name==='@google-cloud/storage')return {Storage:class{bucket(){return bucket;}}};
    if(name==='@google-cloud/secret-manager')return {SecretManagerServiceClient:class{}};
-   if(name==='node-ssh')return {NodeSSH:class{async connect(){} async execCommand(command){scripts.push(command);return {code:sshFails?1:0,stdout:command.includes('allowed-ips')?serverKey+'\n'+manualKey+'\t10.8.0.2/32\n':'',stderr:''};}dispose(){}}};
+   if(name==='node-ssh')return {NodeSSH:class{async connect(){} async execCommand(command){scripts.push(command);return {code:sshFails?1:0,stdout:command.includes('allowed-ips')?serverKey+'\n'+manualKey+'\t'+manualIP+'/32\n':'',stderr:''};}dispose(){}}};
    if(name==='./lib/oauth')return {createOAuth:args=>createOAuth({...args,env,fetchImpl:fakeProxy})};
    if(name==='./lib/extension-access')return {createExtensionAccess:args=>realRequire(name).createExtensionAccess({...args,fetchImpl:async()=>({ok:true})})};
    return realRequire(name);
@@ -46,6 +46,11 @@ test('HTTP portal: sole admin invites friend, friend cannot administer, disable 
  const ownedByAdmin=await (await call('/api/peers',{cookie:admin.cookie})).json();
  assert.equal(ownedByAdmin.find(p=>p.pubKey===manualKey).owner,'xiangenhu@gmail.com');
  assert.equal(ownedByAdmin.find(p=>p.pubKey===manualKey).hasConfig,false);
+ manualIP='10.8.0.99';
+ const conflicting=await call('/api/peers',{cookie:friend.cookie,body:{name:'conflict-test'}});
+ assert.equal(conflicting.status,409);assert.match((await conflicting.json()).error,/Device address differs from saved records/);
+ manualIP='10.8.0.2';
+ assert.equal((await (await call('/api/peers',{cookie:friend.cookie})).json()).length,1);
  // The same member can approve and connect their own extension without admin.
  const verifier='v'.repeat(43),challenge=require('node:crypto').createHash('sha256').update(verifier).digest('base64url');
  const pair=await (await call('/api/extension/pair/start',{body:{challenge,browser:'Firefox'}})).json();
