@@ -274,6 +274,31 @@
     .traffic-table tbody tr:nth-child(even){background:#0e1c2b}
     .traffic-table tbody tr:hover{background:#1a3341}
     @media(max-width:600px){.workspace-nav{grid-template-columns:1fr 1fr}.workspace-nav button:first-child{grid-column:1 / -1}.traffic-table td,.traffic-table th{padding:10px}}
+    .admin-table{table-layout:fixed}
+    .admin-table th:nth-child(1){width:46%}.admin-table th:nth-child(2){width:34%}.admin-table th:nth-child(3){width:20%}
+    .admin-table td{vertical-align:top;padding:16px}
+    .admin-email{display:block;overflow-wrap:anywhere;margin-bottom:8px;font-weight:600}
+    .admin-access{display:inline-block;padding:3px 8px;border-radius:6px;background:#293849;color:#c6d3df;font-size:11px}
+    .admin-access.active{background:#153d34;color:#91e8c9}.admin-access.pending{background:#49381c;color:#f5d290}
+    .admin-delivery{display:block;color:#9eb2c5;font-size:11px;margin-top:7px;overflow-wrap:anywhere}
+    #app .admin-table summary{font-size:12px;font-weight:500}
+    .admin-device{border-top:1px solid #304357;padding:12px 0}
+    .admin-device strong,.admin-device small{display:block;overflow-wrap:anywhere}
+    .admin-device small{color:#9eb2c5;margin:5px 0 8px}
+    .admin-device-controls{display:flex;gap:6px;flex-wrap:wrap}
+    #app .admin-table button{font-size:11px;padding:8px 10px;min-height:36px}
+    .admin-actions button{margin-top:8px}
+    .admin-invite{border:1px solid #304357;border-radius:10px;padding:14px;margin:16px 0}
+    @media(max-width:600px){
+      #members-list .traffic-table-wrap{overflow:visible;border:0}
+      .admin-table,.admin-table tbody{display:block}.admin-table thead{display:none}
+      .admin-table tr{display:grid;grid-template-columns:minmax(0,1fr) auto;border:1px solid #34495e;border-radius:10px;margin-bottom:10px;padding:12px;gap:12px}
+      .admin-table td{display:block;border:0;padding:0!important}
+      .admin-table td:first-child{grid-column:1 / -1}
+      .admin-table td:nth-child(2){min-width:0}
+      .admin-table td:nth-child(3){max-width:120px}
+      #app .admin-table button{min-height:44px}
+    }
   </style>
 </head>
 <body>
@@ -465,10 +490,10 @@
   </div>
 
   <section class="section" id="admin-members" hidden>
-    <h2>Friends and invitations</h2>
+    <h2>Members &amp; devices</h2>
     <p>Welcome colleagues to your private research network. Only you can invite or disable members.</p>
 
-    <div class="invite-compose"><label for="invite-email">Invite a colleague by email</label>
+    <details class="admin-invite"><summary>Invite a colleague</summary><div class="invite-compose"><label for="invite-email">Invite a colleague by email</label>
     <div class="invite-controls">
     <input type="email" id="invite-email" placeholder="friend@gmail.com">
     <button class="btn-primary" id="create-invite">Generate invitation</button>
@@ -477,7 +502,7 @@
     <p id="invite-result" role="status"></p>
     <textarea id="invite-share" readonly hidden rows="4" style="width:100%" aria-label="Invitation link and code"></textarea>
     <button class="btn-muted" id="copy-invite" hidden>Copy invitation</button>
-    <h3>Members, requests &amp; devices</h3><p id="requests-heading"></p><div id="members-list"></div>
+    </details><h3>Network directory</h3><p id="requests-heading"></p><div id="members-list"></div>
     <p id="member-status" role="status"></p>
     <details><summary>Connection maintenance</summary><p>If a device change did not reach the VPN server, retry synchronization.</p><button class="btn-muted" id="retry-sync">Retry VPN synchronization</button></details>
   </section>
@@ -884,27 +909,36 @@
       const rows=[...records.values()].sort((a,b)=>Number(!!b.request)-Number(!!a.request)||a.email.localeCompare(b.email));
       const box=document.getElementById('members-list');box.replaceChildren();
       const wrap=document.createElement('div');wrap.className='traffic-table-wrap';
-      const table=document.createElement('table');table.className='traffic-table';
+      const table=document.createElement('table');table.className='traffic-table admin-table';
       const head=table.createTHead().insertRow();
-      for(const title of ['Member','Status','Email delivery','Devices & controls','Member actions']){const th=document.createElement('th');th.scope='col';th.textContent=title;head.appendChild(th);}
+      for(const title of ['Member & access','Devices','Actions']){const th=document.createElement('th');th.scope='col';th.textContent=title;head.appendChild(th);}
       const body=table.createTBody();wrap.appendChild(table);box.appendChild(wrap);
-      if(!rows.length){const cell=body.insertRow().insertCell();cell.colSpan=5;cell.textContent='No members or requests yet.';}
+      if(!rows.length){const cell=body.insertRow().insertCell();cell.colSpan=3;cell.textContent='No members or requests yet.';}
       for(const user of rows) {
         const tr=body.insertRow();
-        tr.insertCell().textContent=user.email;
-        tr.insertCell().textContent=user.label;
-        tr.insertCell().textContent=user.emailStatus?(user.emailStatus==='sent'?'Accepted by mail service':'Unconfirmed: '+(user.emailError || 'Check gateway records')):'—';
-        const devices=tr.insertCell();
+        const identity=tr.insertCell();identity.dataset.label='Member & access';
+        const email=document.createElement('strong');email.className='admin-email';email.textContent=user.email;identity.appendChild(email);
+        const status=document.createElement('span');status.className='admin-access '+(user.request?'pending':user.label==='Active'?'active':'');status.textContent=user.label;identity.appendChild(status);
+        if(user.emailStatus){const delivery=document.createElement('small');delivery.className='admin-delivery';delivery.textContent=user.emailStatus==='sent'?'Invitation email accepted':'Email unconfirmed: '+(user.emailError || 'Check gateway records');identity.appendChild(delivery);}
+        const devices=tr.insertCell();devices.dataset.label='Devices';
         const owned=peers.filter(p=>(p.owner || 'Unassigned')===user.email);
-        if(!owned.length)devices.textContent='No devices';
-        for(const p of owned){
-          const item=document.createElement('div');item.style.marginBottom='10px';
-          const label=document.createElement('p');label.textContent=p.name+' · '+p.ip+(p.needsRepair?' · Needs replacement':'');item.appendChild(label);
-          for(const [title,action] of [['Check connection',()=>checkConnection(p.name)],['Revoke device',()=>removePeer(p.name)]]){const button=document.createElement('button');button.className='btn-muted';button.textContent=title;button.addEventListener('click',action);item.appendChild(button);}
-          devices.appendChild(item);
+        if(!owned.length){const empty=document.createElement('span');empty.className='admin-delivery';empty.textContent='No devices';devices.appendChild(empty);}
+        else {
+          const details=document.createElement('details');details.className='admin-device-details';
+          const summary=document.createElement('summary');summary.textContent=owned.length+' device'+(owned.length===1?'':'s')+' · Manage';details.appendChild(summary);
+          for(const p of owned){
+            const item=document.createElement('div');item.className='admin-device';
+            const label=document.createElement('strong');label.textContent=p.name;item.appendChild(label);
+            const ip=document.createElement('small');ip.textContent=p.ip+(p.needsRepair?' · Needs replacement':'');item.appendChild(ip);
+            const controls=document.createElement('div');controls.className='admin-device-controls';
+            for(const [title,action] of [['Check connection',()=>checkConnection(p.name)],['Revoke device',()=>removePeer(p.name)]]){const button=document.createElement('button');button.className='btn-muted';button.textContent=title;button.addEventListener('click',action);controls.appendChild(button);}
+            item.appendChild(controls);details.appendChild(item);
+          }
+          devices.appendChild(details);
         }
-        const row=tr.insertCell();
+        const row=tr.insertCell();row.dataset.label='Actions';
         if(user.request){const approve=document.createElement('button');approve.className='btn-primary';approve.textContent='Prepare invitation';approve.addEventListener('click',()=>{
+          document.querySelector('.admin-invite').open=true;
           document.getElementById('invite-email').value=user.email;document.getElementById('email-invite').checked=true;
           document.getElementById('create-invite').scrollIntoView({behavior:'smooth',block:'center'});
           document.getElementById('invite-result').textContent='Review the address, then Generate invitation to issue and email the code.';
