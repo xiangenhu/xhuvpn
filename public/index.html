@@ -275,7 +275,7 @@
     .traffic-table tbody tr:hover{background:#1a3341}
     @media(max-width:600px){.workspace-nav{grid-template-columns:1fr 1fr}.workspace-nav button:first-child{grid-column:1 / -1}.traffic-table td,.traffic-table th{padding:10px}}
     .admin-table{table-layout:fixed}
-    .admin-table th:nth-child(1){width:46%}.admin-table th:nth-child(2){width:34%}.admin-table th:nth-child(3){width:20%}
+    .admin-table th:nth-child(1){width:30%}.admin-table th:nth-child(2){width:42%}.admin-table th:nth-child(3){width:28%}
     .admin-table td{vertical-align:top;padding:16px}
     .admin-email{display:block;overflow-wrap:anywhere;margin-bottom:8px;font-weight:600}
     .admin-access{display:inline-block;padding:3px 8px;border-radius:6px;background:#293849;color:#c6d3df;font-size:11px}
@@ -502,7 +502,7 @@
     <p id="invite-result" role="status"></p>
     <textarea id="invite-share" readonly hidden rows="4" style="width:100%" aria-label="Invitation link and code"></textarea>
     <button class="btn-muted" id="copy-invite" hidden>Copy invitation</button>
-    </details><h3>Network directory</h3><p id="requests-heading"></p><div id="members-list"></div>
+    </details><h3>Device directory</h3><p>One row per device, with its owner. Requests and members without devices appear at the end.</p><p id="requests-heading"></p><div id="members-list"></div>
     <p id="member-status" role="status"></p>
     <details><summary>Connection maintenance</summary><p>If a device change did not reach the VPN server, retry synchronization.</p><button class="btn-muted" id="retry-sync">Retry VPN synchronization</button></details>
   </section>
@@ -911,32 +911,27 @@
       const wrap=document.createElement('div');wrap.className='traffic-table-wrap';
       const table=document.createElement('table');table.className='traffic-table admin-table';
       const head=table.createTHead().insertRow();
-      for(const title of ['Member & access','Devices','Actions']){const th=document.createElement('th');th.scope='col';th.textContent=title;head.appendChild(th);}
+      for(const title of ['Device','Owner & access','Actions']){const th=document.createElement('th');th.scope='col';th.textContent=title;head.appendChild(th);}
       const body=table.createTBody();wrap.appendChild(table);box.appendChild(wrap);
       if(!rows.length){const cell=body.insertRow().insertCell();cell.colSpan=3;cell.textContent='No members or requests yet.';}
-      for(const user of rows) {
+      const deviceRows=peers.map(device=>({device,user:records.get(device.owner || 'Unassigned')})).sort((a,b)=>a.device.name.localeCompare(b.device.name));
+      for(const user of rows)if(!peers.some(p=>(p.owner || 'Unassigned')===user.email))deviceRows.push({user,device:null});
+      for(const {user,device} of deviceRows) {
         const tr=body.insertRow();
-        const identity=tr.insertCell();identity.dataset.label='Member & access';
+        const cell=tr.insertCell();cell.dataset.label='Device';
+        const name=document.createElement('strong');name.className='admin-email';name.textContent=device?device.name:'No device yet';cell.appendChild(name);
+        const meta=document.createElement('small');meta.className='admin-delivery';meta.textContent=device?device.ip+(device.needsRepair?' · Needs replacement':''):user.request?'Access requested':user.label;cell.appendChild(meta);
+        const identity=tr.insertCell();identity.dataset.label='Owner & access';
         const email=document.createElement('strong');email.className='admin-email';email.textContent=user.email;identity.appendChild(email);
         const status=document.createElement('span');status.className='admin-access '+(user.request?'pending':user.label==='Active'?'active':'');status.textContent=user.label;identity.appendChild(status);
         if(user.emailStatus){const delivery=document.createElement('small');delivery.className='admin-delivery';delivery.textContent=user.emailStatus==='sent'?'Invitation email accepted':'Email unconfirmed: '+(user.emailError || 'Check gateway records');identity.appendChild(delivery);}
-        const devices=tr.insertCell();devices.dataset.label='Devices';
-        const owned=peers.filter(p=>(p.owner || 'Unassigned')===user.email);
-        if(!owned.length){const empty=document.createElement('span');empty.className='admin-delivery';empty.textContent='No devices';devices.appendChild(empty);}
-        else {
-          const details=document.createElement('details');details.className='admin-device-details';
-          const summary=document.createElement('summary');summary.textContent=owned.length+' device'+(owned.length===1?'':'s')+' · Manage';details.appendChild(summary);
-          for(const p of owned){
-            const item=document.createElement('div');item.className='admin-device';
-            const label=document.createElement('strong');label.textContent=p.name;item.appendChild(label);
-            const ip=document.createElement('small');ip.textContent=p.ip+(p.needsRepair?' · Needs replacement':'');item.appendChild(ip);
-            const controls=document.createElement('div');controls.className='admin-device-controls';
-            for(const [title,action] of [['Check connection',()=>checkConnection(p.name)],['Revoke device',()=>removePeer(p.name)]]){const button=document.createElement('button');button.className='btn-muted';button.textContent=title;button.addEventListener('click',action);controls.appendChild(button);}
-            item.appendChild(controls);details.appendChild(item);
-          }
-          devices.appendChild(details);
-        }
         const row=tr.insertCell();row.dataset.label='Actions';
+        if(device){
+          const check=document.createElement('button');check.className='btn-muted';check.textContent='Check connection';check.addEventListener('click',()=>checkConnection(device.name));row.appendChild(check);
+        }
+        const menu=document.createElement('details');menu.className='admin-actions';const toggle=document.createElement('summary');toggle.textContent='More actions';menu.appendChild(toggle);
+        if(device){const revoke=document.createElement('button');revoke.className='btn-danger';revoke.textContent='Revoke this device';revoke.addEventListener('click',()=>removePeer(device.name));menu.appendChild(revoke);}
+        row.appendChild(menu);
         if(user.request){const approve=document.createElement('button');approve.className='btn-primary';approve.textContent='Prepare invitation';approve.addEventListener('click',()=>{
           document.querySelector('.admin-invite').open=true;
           document.getElementById('invite-email').value=user.email;document.getElementById('email-invite').checked=true;
@@ -944,14 +939,14 @@
           document.getElementById('invite-result').textContent='Review the address, then Generate invitation to issue and email the code.';
         });row.appendChild(approve);}
         if(user.enabled || user.label==='Disabled') {
-          const button=document.createElement('button');button.className='btn-danger';button.textContent=user.enabled?'Disable':'Retry connection cleanup';
+          const button=document.createElement('button');button.className='btn-danger';button.textContent=user.enabled?'Disable owner & all devices':'Retry owner cleanup';
           button.addEventListener('click',async()=>{
             if(!confirm('Disable '+user.email+' and revoke all their VPN devices?')) return;
             button.disabled=true;
             try{await jsonRequest('/api/admin/users/disable',{email:user.email});document.getElementById('member-status').textContent='User disabled and VPN configuration updated.';}
             catch(e){document.getElementById('member-status').textContent=e.message;}
             finally{loadAll();}
-          });row.append(button);
+          });menu.appendChild(button);
         }
 
       }
