@@ -1,0 +1,10 @@
+{
+  "manifest_version":3,"name":"Xiangen Research Network","version":"1.0.0",
+  "description":"Connect your desktop browser to Xiangen Hu’s approved research network.",
+  "minimum_chrome_version":"120",
+  "permissions":["proxy","storage","alarms","privacy","webRequest","webRequestAuthProvider"],
+  "host_permissions":["<all_urls>"],
+  "background":{"service_worker":"background.js"},
+  "action":{"default_title":"Research Network","default_popup":"popup.html"},
+  "incognito":"not_allowed"
+}

@@ -37,7 +37,9 @@
     .peer-actions{display:flex;gap:.5rem}
     .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center}
     .modal-overlay.open{display:flex}
-    .modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.5rem;max-width:480px;width:100%}
+    .modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.5rem;max-width:560px;width:100%;max-height:90vh;overflow-y:auto}
+    #add-msg:not(:empty){margin-top:1rem;padding:1rem;border:1px solid var(--accent);border-radius:10px;background:var(--surface);line-height:1.7;font-size:1rem;white-space:pre-line}
+    #profile-steps{padding-left:1.4rem;line-height:1.8;margin:1rem 0}#profile-steps li{margin:.7rem 0}
     .modal h3{margin-bottom:1rem}
     .modal pre{font-family:var(--mono);font-size:.7rem;background:#0d1829;border:1px solid var(--border);border-radius:6px;padding:.8rem;white-space:pre-wrap;word-break:break-all;color:var(--accent);max-height:200px;overflow-y:auto;margin-bottom:1rem}
     .modal img{display:block;margin:0 auto 1rem;border-radius:8px}
@@ -196,7 +198,7 @@
     <p class="welcome-intro">Welcome, colleagues and collaborators. Access the resources you need for your research, with a guided setup and a connection that fits the way you work.</p>
     <p class="welcome-author">Created by Xiangen Hu, for our research community.</p>
     <div class="connection-cards">
-      <article class="connection-card"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="5" width="26" height="22" rx="4"/><path d="M3 12h26M8 8.5h1m3 0h1M12 17l-3 3 3 3m8-6 3 3-3 3"/></svg><h2>Just your browser</h2><p>Open a research browser inside the portal. Nothing to install on your device.</p><small>Available after the browser service is enabled</small></article>
+      <article class="connection-card"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="5" width="26" height="22" rx="4"/><path d="M3 12h26M8 8.5h1m3 0h1M12 17l-3 3 3 3m8-6 3 3-3 3"/></svg><h2>Just your browser</h2><p>Install the Research Network extension once. Sign in, approve this browser, and connect with one switch.</p><small>Desktop Chrome, Edge, Brave, Opera and Firefox · available after proxy setup</small></article>
       <article class="connection-card"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="5" width="20" height="16" rx="3"/><path d="M8 27h10m-5-6v6"/><rect x="21" y="14" width="8" height="14" rx="2"/></svg><h2>Your whole device</h2><p>Install WireGuard once. We guide you through importing your personal connection profile.</p><small>Use WireGuard’s switch to connect</small></article>
     </div>
   </section>
@@ -264,9 +266,24 @@
   <section class="section">
     <h2>How would you like to connect?</h2>
     <label for="connection-mode">Connection mode</label>
-    <select id="connection-mode"><option value="browser">Browser only — no installation (default)</option><option value="wireguard">Whole device — WireGuard</option></select>
+    <select id="connection-mode"><option value="extension">Browser extension — recommended for desktops</option><option value="wireguard">Whole device — WireGuard</option><option value="browser">Remote browser — optional server service</option></select>
     <p>You can change this choice anytime. Changing modes here does not turn off WireGuard; use its on/off switch.</p>
     <p class="research-reminder">Created by Xiangen Hu for colleagues and research teams. Research use only. Do not distribute access without permission. You are responsible for your internet activity and improper use.</p>
+  </section>
+  <section id="extension-panel" class="section">
+    <h2>A connection for your browser</h2>
+    <p>Install once, then use Connect / Disconnect in the extension. No WireGuard app or configuration file is needed for this mode. Regular web tabs in this browser use the research proxy; other apps and private windows do not.</p>
+    <p><a class="btn-primary" href="/extension-setup.html" target="_blank" rel="noopener">Get the browser extension</a></p>
+    <p id="extension-status" role="status"></p>
+    <div id="extension-approval" hidden>
+      <h3>Approve this browser</h3><p id="extension-request"></p>
+      <p>Check that this code matches the code in your extension. Approve only a connection you just started yourself.</p>
+      <p id="extension-code" style="font-family:var(--mono);font-size:1.4rem;color:var(--accent)"></p>
+      <button class="btn-primary" id="extension-approve">Approve this browser</button>
+      <p id="extension-approval-status" role="status"></p>
+    </div>
+    <h3>My extension connections</h3><div id="extension-sessions"></div>
+    <p>Connections expire after eight hours. Revoke a lost browser here. Signing out of this portal does not disconnect an already approved extension; use its Disconnect switch.</p>
   </section>
   <section id="browser-panel" class="section" hidden>
     <h2>Research browser</h2>
@@ -355,8 +372,11 @@
 </div>
 <!-- ── Config Modal ──────────────────────────────────────────────────── -->
 <div class="modal-overlay" id="config-modal">
-  <div class="modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="profile-ready-title" aria-describedby="setup-instructions" tabindex="-1" id="profile-dialog">
+    <h2 id="profile-ready-title">Your WireGuard profile is ready</h2>
     <h3 id="modal-title">Peer Config</h3>
+    <p><strong>Keep this window open while you complete these steps. It stays here until you choose Close.</strong></p>
+    <ol id="profile-steps"><li><strong>Get the file.</strong> Find the <code>.conf</code> file in your Downloads folder, or use <strong>Download my profile</strong> below.</li><li><strong>Open WireGuard.</strong> Choose <strong>Add tunnel → Import tunnel(s) from file</strong>, then select that file.</li><li><strong>Activate.</strong> Select the imported tunnel and click <strong>Activate</strong>.</li></ol>
     <p id="setup-instructions"></p>
     <p><a href="https://www.wireguard.com/install/" target="_blank" rel="noopener">Install the official WireGuard app</a>. Keep this profile private and use it on one device.</p>
     <div class="modal-qr-section">
@@ -376,6 +396,10 @@
 </div>
 
 <script>
+  const extensionCode=new URLSearchParams(location.hash.slice(1)).get('extension');
+  if(extensionCode && /^[A-F0-9]{4}(-[A-F0-9]{4}){2}$/.test(extensionCode)) {
+    sessionStorage.setItem('vpn_extension_code',extensionCode);history.replaceState({},'',location.pathname);
+  }
   let currentUser = null;
   let isAdmin = false;
   let currentConfig = '';
@@ -385,9 +409,11 @@
   function chooseMode() {
     document.getElementById('wireguard-panel').hidden=mode.value!=='wireguard';
     document.getElementById('browser-panel').hidden=mode.value!=='browser';
+    document.getElementById('extension-panel').hidden=mode.value!=='extension';
     localStorage.setItem('vpn_connection_mode',mode.value);
   }
-  mode.value=localStorage.getItem('vpn_connection_mode')==='wireguard'?'wireguard':'browser';
+  mode.value=['wireguard','browser','extension'].includes(localStorage.getItem('vpn_connection_mode'))?localStorage.getItem('vpn_connection_mode'):'extension';
+  if(sessionStorage.getItem('vpn_extension_code'))mode.value='extension';
   mode.addEventListener('change',chooseMode);chooseMode();
   document.getElementById('save-consent').addEventListener('click',async()=>{
     if(!document.getElementById('accept-notice').checked) {document.getElementById('consent-status').textContent='Please check the agreement box to continue.';return;}
@@ -466,7 +492,10 @@
       document.getElementById('browser-start').disabled=!data.browserEnabled;
       browserAvailable=data.browserEnabled;
       document.getElementById('browser-stop').disabled=!data.browserEnabled;
-      if(!data.browserEnabled) document.getElementById('browser-status').textContent='Browser-only mode is awaiting server setup. You can use WireGuard meanwhile.';
+      if(!data.browserEnabled) document.getElementById('browser-status').textContent='The optional remote-browser server is not configured. Use the extension or WireGuard instead.';
+      document.getElementById('extension-status').textContent=data.extensionEnabled?'The extension service is configured. Open the extension and click Connect to approve this browser.':'The extension is awaiting its one-time proxy server setup. You can install it now; Connect will explain when the server is unavailable.';
+      void loadExtensionConnections();
+      if(sessionStorage.getItem('vpn_extension_code'))void loadExtensionApproval();
       document.getElementById('app').style.display = 'block';
       document.getElementById('admin-status').style.display = isAdmin ? 'block' : 'none';
       document.getElementById('admin-members').hidden = !isAdmin;
@@ -549,7 +578,7 @@
     const msgEl = document.getElementById('add-msg');
     const btn = document.getElementById('add-btn');
     if(btn.disabled) return;
-    if (!name) { msgEl.innerHTML = '<div class="msg err">Name required.</div>'; return; }
+    if (!name) {msgEl.textContent='Enter a name for this device, then click Create my profile.';msgEl.focus();return;}
     btn.disabled = true; btn.textContent = 'Checking server and registering device…';
     msgEl.textContent='Creating your WireGuard profile: connecting to the VPN machine and checking setup. This can take up to 90 seconds. Please keep this page open.';
     msgEl.scrollIntoView({block:'nearest',behavior:'smooth'});
@@ -570,7 +599,7 @@
       msgEl.textContent=controller.signal.aborted
         ? 'Profile creation took too long. Check My devices below before trying again: the profile may already have been saved. Use Setup / download if it appears there.'
         : e.message;
-      msgEl.focus();
+      msgEl.focus();msgEl.scrollIntoView({block:'center',behavior:'smooth'});
     }
     finally {clearTimeout(timer);btn.disabled=false;btn.textContent='2. Create my profile';loadAll();}
   }
@@ -595,6 +624,7 @@
 
   function showModal(name, config, qr) {
     const platform=document.getElementById('device-platform').value;
+    document.getElementById('profile-steps').hidden=platform==='mobile' || platform==='linux';
     document.getElementById('setup-instructions').textContent=platform==='mobile'
       ? 'In WireGuard, tap + and scan this QR code from another screen, or download this file and import it on this device. Activate the tunnel, then check the connection.'
       : platform==='linux' ? 'Download this profile and import it using your Linux network manager’s WireGuard import option. Activate it, then check the connection.'
@@ -607,6 +637,7 @@
     const qrEl = document.getElementById('modal-qr');
     if (qr) { qrEl.src = qr; qrEl.style.display = 'block'; } else { qrEl.style.display = 'none'; }
     document.getElementById('config-modal').classList.add('open');
+    document.getElementById('profile-dialog').focus();
   }
 
   function closeModal() {
@@ -614,6 +645,7 @@
     document.getElementById('modal-config').textContent='';
     document.getElementById('modal-qr').removeAttribute('src');
     currentConfig='';currentPeerName='';
+    document.getElementById('add-btn').focus();
   }
 
   async function importDevices(button) {
@@ -652,6 +684,42 @@
   }
 
   // ── Helpers ────────────────────────────────────────────────────────
+
+  async function loadExtensionConnections() {
+    const list=document.getElementById('extension-sessions');
+    try {
+      const sessions=await jsonRequest('/api/extension/sessions');list.replaceChildren();
+      if(!sessions.length){list.textContent='No active extension connections.';return;}
+      for(const session of sessions) {
+        const row=document.createElement('div');row.className='peer-row';
+        const label=document.createElement('span');label.textContent=session.label+' · expires '+new Date(session.expires).toLocaleString();
+        const button=document.createElement('button');button.className='btn-muted';button.textContent='Revoke';
+        button.addEventListener('click',async()=>{button.disabled=true;try {await jsonRequest('/api/extension/sessions/revoke',{id:session.id});await loadExtensionConnections();}catch {button.disabled=false;document.getElementById('extension-status').textContent='Could not revoke this connection. Please retry.';}});
+        row.append(label,button);list.append(row);
+      }
+    }catch {list.textContent='Extension connection status is unavailable. Refresh to retry.';}
+  }
+  async function loadExtensionApproval() {
+    const code=sessionStorage.getItem('vpn_extension_code');
+    const panel=document.getElementById('extension-approval');panel.hidden=false;
+    const button=document.getElementById('extension-approve');button.disabled=true;
+    try {
+      const info=await jsonRequest('/api/extension/pair/info?code='+encodeURIComponent(code));
+      document.getElementById('extension-request').textContent=info.label+' is asking to connect to your research network.';
+      document.getElementById('extension-code').textContent=info.code;
+      button.disabled=info.approved;
+      document.getElementById('extension-approval-status').textContent=info.approved?'Already approved. Reopen the extension to finish connecting.':'';
+    }catch(e){document.getElementById('extension-approval-status').textContent=e.message;}
+  }
+  document.getElementById('extension-approve').addEventListener('click',async()=>{
+    const button=document.getElementById('extension-approve');button.disabled=true;
+    try {
+      await jsonRequest('/api/extension/pair/approve',{code:sessionStorage.getItem('vpn_extension_code')});
+      sessionStorage.removeItem('vpn_extension_code');
+      document.getElementById('extension-approval-status').textContent='Approved. Open the extension to finish connecting. You can close this tab.';
+      void loadExtensionConnections();
+    }catch(e){document.getElementById('extension-approval-status').textContent=e.message;button.disabled=false;}
+  });
 
   function showMsg(id, type, text) {
     document.getElementById(id).textContent = text;

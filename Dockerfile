@@ -3,6 +3,9 @@ FROM node:20-slim AS builder
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --only=production
+COPY extension ./extension
+COPY scripts/build-extensions.js ./scripts/build-extensions.js
+RUN node scripts/build-extensions.js
 
 # ── Runtime stage ─────────────────────────────────────────────────────────────
 FROM node:20-slim
@@ -15,6 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=builder /app/node_modules ./node_modules
 COPY . .
+COPY --from=builder /app/public/downloads ./public/downloads
 
 # Cloud Run injects PORT — default 8080
 ENV PORT=8080

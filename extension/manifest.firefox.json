@@ -1,0 +1,10 @@
+{
+  "manifest_version":3,"name":"Xiangen Research Network","version":"1.0.0",
+  "description":"Connect your desktop browser to Xiangen Hu’s approved research network.",
+  "permissions":["proxy","storage","alarms","privacy","webRequest","webRequestBlocking"],
+  "host_permissions":["<all_urls>"],
+  "background":{"scripts":["core.js","background.js"]},
+  "action":{"default_title":"Research Network","default_popup":"popup.html"},
+  "browser_specific_settings":{"gecko":{"id":"research-network@skoonline.org","strict_min_version":"128.0"}},
+  "incognito":"not_allowed"
+}

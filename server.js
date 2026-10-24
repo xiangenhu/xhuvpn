@@ -224,6 +224,7 @@ const {createAccess,AccessError}=require('./lib/access');
 const stateStore=createStateStore(storage.bucket(GCS_BUCKET));
 const remoteBrowser=require('./lib/remote-browser').createRemoteBrowser({store:stateStore});
 const NOTICE_VERSION='2026-10-23';
+const extensionAccess=require('./lib/extension-access').createExtensionAccess({store:stateStore,records:authRecords,noticeVersion:NOTICE_VERSION,env:process.env});
 const RESEARCH_NOTICE='This service was created by Xiangen Hu to support his colleagues and research teams for research purposes only. Do not share or distribute access, invitation codes, VPN profiles, or session links without Xiangen Hu’s permission. Users are responsible for their internet activity and any improper use of this service, and must comply with applicable laws and institutional policies.';
 const access=createAccess({store:stateStore,origin:process.env.APP_URL});
 const oauth = createOAuth({records:authRecords,access});
@@ -290,7 +291,7 @@ app.get('/api/peers/:name/connection',auth,route(async(req,res)=>{
 
 app.get('/api/me', auth, route(async(req, res) => {
   const state=(await stateStore.read()).value;
-  res.json({authType:req.authType,user:req.user,notice:RESEARCH_NOTICE,noticeVersion:NOTICE_VERSION,accepted:state.consent?.[req.user.email]?.version===NOTICE_VERSION,browserEnabled:remoteBrowser.enabled});
+  res.json({authType:req.authType,user:req.user,notice:RESEARCH_NOTICE,noticeVersion:NOTICE_VERSION,accepted:state.consent?.[req.user.email]?.version===NOTICE_VERSION,browserEnabled:remoteBrowser.enabled,extensionEnabled:extensionAccess.enabled});
 }));
 app.post('/api/consent',auth,route(async(req,res)=>{
   if(req.body.version!==NOTICE_VERSION || req.body.accept!==true) throw new AccessError(400,'Please accept the current research-use notice');
@@ -301,6 +302,25 @@ const requireConsent=route(async(req,res,next)=>{
   if((await stateStore.read()).value.consent?.[req.user.email]?.version!==NOTICE_VERSION) throw new AccessError(403,'Accept the research-use notice before using the service');
   next();
 });
+// Extensions use an explicit device approval flow, never exported portal cookies.
+app.use('/api/extension',(req,res,next)=>{
+  res.set('Cache-Control','no-store');
+  const origin=req.headers.origin;
+  if(origin && /^(chrome-extension|moz-extension):\/\/[a-z0-9-]+$/i.test(origin)) {
+    res.set({'Access-Control-Allow-Origin':origin,'Vary':'Origin','Access-Control-Allow-Headers':'Content-Type','Access-Control-Allow-Methods':'GET, POST, OPTIONS'});
+  }
+  if(req.method==='OPTIONS')return res.sendStatus(204);
+  next();
+});
+app.get('/api/extension/config',(req,res)=>res.json({enabled:extensionAccess.enabled}));
+app.post('/api/extension/pair/start',route(async(req,res)=>res.json(await extensionAccess.start(req.body.challenge,req.body.browser,req.ip))));
+app.post('/api/extension/pair/token',route(async(req,res)=>res.json(await extensionAccess.exchange(req.body.deviceCode,req.body.verifier))));
+app.post('/api/extension/disconnect',route(async(req,res)=>res.json(await extensionAccess.revoke(req.body.id,req.body.password))));
+app.post('/api/extension/verify',extensionAccess.gateway,route(async(req,res)=>res.json(await extensionAccess.verify(req.body.id,req.body.password))));
+app.get('/api/extension/pair/info',auth,requireConsent,route(async(req,res)=>res.json(await extensionAccess.info(req.query.code))));
+app.post('/api/extension/pair/approve',auth,requireConsent,route(async(req,res)=>res.json(await extensionAccess.approve(req.body.code,req.user.email))));
+app.get('/api/extension/sessions',auth,route(async(req,res)=>res.json(await extensionAccess.list(req.user.email))));
+app.post('/api/extension/sessions/revoke',auth,route(async(req,res)=>res.json(await extensionAccess.revoke(req.body.id,null,req.user.email))));
 app.post('/api/browser/start',auth,requireConsent,route(async(req,res)=>res.json(await remoteBrowser.start(req.user.email))));
 app.post('/api/browser/status',auth,requireConsent,route(async(req,res)=>res.json(await remoteBrowser.status(req.user.email))));
 app.post('/api/browser/stop',auth,route(async(req,res)=>res.json(await remoteBrowser.stop(req.user.email))));

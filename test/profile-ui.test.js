@@ -38,3 +38,22 @@ test('client timeout directs users to saved devices instead of silently retrying
  const pending=f.addPeer();f.timeout();await pending;
  assert.match(f.elements['add-msg'].textContent,/Check My devices/);assert.equal(f.calls(),1);assert.equal(f.opened.length,0);
 });
+test('profile instructions remain open until explicit dismissal and focus follows the dialog',()=>{
+ const elements={};
+ const names=new Set();
+ for(const id of ['device-platform','profile-steps','setup-instructions','connection-result','config-details','modal-title','modal-config','modal-qr','config-modal','profile-dialog','add-btn'])
+  elements[id]={value:'windows',style:{},focus(){this.focused=true;},removeAttribute(key){delete this[key];},classList:{add:name=>names.add(name),remove:name=>names.delete(name)}};
+ const modalSource=script.slice(script.indexOf('  function showModal('),script.indexOf('  async function importDevices('));
+ const modal=vm.runInNewContext(modalSource+';({showModal,closeModal})',{
+  document:{getElementById:id=>elements[id]},currentConfig:'',currentPeerName:'',
+  setTimeout:()=>{throw Error('Profile instructions must not auto-dismiss');}
+ });
+ modal.showModal('My-Windows','[Interface]','qr');
+ assert.equal(names.has('open'),true);assert.equal(elements['profile-dialog'].focused,true);
+ assert.equal(elements['profile-steps'].hidden,false);
+ assert.match(elements['setup-instructions'].textContent,/Activate/);
+ modal.closeModal();assert.equal(names.has('open'),false);assert.equal(elements['add-btn'].focused,true);
+ assert.equal(elements['modal-config'].textContent,'');
+ elements['device-platform'].value='mobile';modal.showModal('Phone','[Interface]','qr');
+ assert.equal(elements['profile-steps'].hidden,true);assert.match(elements['setup-instructions'].textContent,/scan this QR code/);
+});

@@ -1,7 +1,16 @@
 # WireGuard VPN Manager — Cloud Run Edition
 ### Node.js · Cloud Run · Google Cloud Storage · GCE VM (WireGuard)
 
-## Sign-in setup (administrator)
+## Browser extension
+
+Desktop Chrome, Edge, Brave, Opera and Firefox extension packages are available
+after the image build. Users follow `/extension-setup.html`: install once, sign in,
+approve the displayed code, then Connect/Disconnect without WireGuard profiles.
+The authenticated HTTPS proxy must first be deployed once by the administrator.
+See [browser extension deployment and support](docs/BROWSER_EXTENSION.md).
+This is preview distribution; store publication and Firefox signing are pending.
+
+## Sign-in configuration
 
 If the homepage says **“Sign-in is not available yet”**, the deployed portal is missing required authentication settings. Visitors do not need to configure anything; the administrator must complete setup.
 
