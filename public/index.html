@@ -49,6 +49,10 @@
 
     /* Signed-in workspace */
     #app{max-width:1120px;margin:0 auto}
+    .workspace-nav{display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:1.5rem}
+    .peer-row{flex-wrap:wrap;gap:.65rem}
+    .peer-info{flex:1 1 220px;overflow-wrap:anywhere}
+    #personal-identity{color:var(--muted)}
     #app header{flex-wrap:wrap;padding:12px 0 24px;margin-bottom:28px;gap:14px}
     #app header h1{font-size:20px}
     #app .user-info{color:#acbed0;overflow-wrap:anywhere}
@@ -262,7 +266,12 @@
     <span class="user-info" id="user-info" style="margin-left:auto"></span>
     <button class="btn-muted" style="font-size:.75rem" onclick="logout()">Logout</button>
   </header>
-  <div class="workspace-intro"><h2>Your research, connected.</h2><p>A private space for your team to connect, share access, and manage their devices.</p></div>
+  <nav class="workspace-nav" aria-label="Workspace">
+    <button type="button" id="personal-workspace-button" class="btn-primary" aria-pressed="true" aria-controls="personal-workspace" onclick="selectWorkspace('personal')">My VPN</button>
+    <button type="button" id="management-workspace-button" class="btn-muted" aria-pressed="false" aria-controls="management-workspace" onclick="selectWorkspace('management')" hidden>Administration</button>
+  </nav>
+  <section id="personal-workspace" aria-labelledby="personal-title">
+  <div class="workspace-intro"><h2 id="personal-title">My VPN</h2><p>Set up your own devices, download your WireGuard profiles, or connect your browser.</p><p id="personal-identity"></p></div>
   <section class="section">
     <h2>How would you like to connect?</h2>
     <label for="connection-mode">Connection mode</label>
@@ -295,31 +304,6 @@
     <iframe id="research-browser" title="Private research browser" referrerpolicy="no-referrer" allow="fullscreen; clipboard-read; clipboard-write" style="width:100%;height:75vh;border:0" hidden></iframe>
   </section>
 
-  <div class="section" id="admin-status" style="display:none">
-    <details><summary>Server details &amp; existing devices</summary>
-    <div class="card"><pre id="wg-status">Loading...</pre></div>
-    <button class="btn-muted" onclick="importDevices(this)">Import existing devices</button>
-    <p id="import-status" role="status">Use once to preserve devices previously added manually. Their existing files keep working.</p></details>
-  </div>
-
-  <section class="section" id="admin-members" hidden>
-    <h2>Friends and invitations</h2>
-    <p>Welcome colleagues to your private research network. Only you can invite or disable members.</p>
-    <h3 id="requests-heading">Access requests</h3>
-    <div id="approval-requests"></div>
-    <div class="invite-compose"><label for="invite-email">Invite a colleague by email</label>
-    <div class="invite-controls">
-    <input type="email" id="invite-email" placeholder="friend@gmail.com">
-    <button class="btn-primary" id="create-invite">Generate invitation</button>
-    </div><label class="checkbox-label"><input type="checkbox" id="email-invite"> Email the invitation to this colleague</label>
-    <p>Use their verified SKO or Google email. Up to nine friends; three devices each.</p></div>
-    <p id="invite-result" role="status"></p>
-    <textarea id="invite-share" readonly hidden rows="4" style="width:100%" aria-label="Invitation link and code"></textarea>
-    <button class="btn-muted" id="copy-invite" hidden>Copy invitation</button>
-    <h3>Members &amp; pending invitations</h3><div id="members-list"></div>
-    <p id="member-status" role="status"></p>
-    <details><summary>Connection maintenance</summary><p>If a device change did not reach the VPN server, retry synchronization.</p><button class="btn-muted" id="retry-sync">Retry VPN synchronization</button></details>
-  </section>
   <div id="wireguard-panel"><div class="section">
     <h2>Set up this device</h2>
     <p>Install WireGuard once, then create and import your personal profile. No commands or manual keys are needed.</p>
@@ -382,6 +366,37 @@
   </div>
 </div>
 
+  </section>
+  <section id="management-workspace" aria-labelledby="management-title" hidden>
+    <div class="workspace-intro"><h2 id="management-title">Administration</h2><p>Manage member access, review all registered devices, and maintain the VPN server. Your own connection setup is under My VPN.</p></div>
+  <div class="section" id="admin-status" style="display:none">
+    <details><summary>Server details &amp; existing devices</summary>
+    <div class="card"><pre id="wg-status">Loading...</pre></div>
+    <button class="btn-muted" onclick="importDevices(this)">Import existing devices</button>
+    <p id="import-status" role="status">Use once to preserve devices previously added manually. Their existing files keep working.</p></details>
+  </div>
+
+  <section class="section" id="admin-members" hidden>
+    <h2>Friends and invitations</h2>
+    <p>Welcome colleagues to your private research network. Only you can invite or disable members.</p>
+    <h3 id="requests-heading">Access requests</h3>
+    <div id="approval-requests"></div>
+    <div class="invite-compose"><label for="invite-email">Invite a colleague by email</label>
+    <div class="invite-controls">
+    <input type="email" id="invite-email" placeholder="friend@gmail.com">
+    <button class="btn-primary" id="create-invite">Generate invitation</button>
+    </div><label class="checkbox-label"><input type="checkbox" id="email-invite"> Email the invitation to this colleague</label>
+    <p>Use their verified SKO or Google email. Up to nine friends; three devices each.</p></div>
+    <p id="invite-result" role="status"></p>
+    <textarea id="invite-share" readonly hidden rows="4" style="width:100%" aria-label="Invitation link and code"></textarea>
+    <button class="btn-muted" id="copy-invite" hidden>Copy invitation</button>
+    <h3>Members &amp; pending invitations</h3><div id="members-list"></div>
+    <p id="member-status" role="status"></p>
+    <details><summary>Connection maintenance</summary><p>If a device change did not reach the VPN server, retry synchronization.</p><button class="btn-muted" id="retry-sync">Retry VPN synchronization</button></details>
+  </section>
+    <section class="section"><h2>All VPN devices</h2><p>Includes your devices and members’ devices. Each row shows its owner. Revoking a device removes its server access.</p><div id="admin-peers-list">Loading devices…</div></section>
+  </section>
+
 </div>
 <!-- ── Config Modal ──────────────────────────────────────────────────── -->
 <div class="modal-overlay" id="config-modal">
@@ -416,6 +431,16 @@
   }
   let currentUser = null;
   let isAdmin = false;
+  function selectWorkspace(workspace) {
+    const management=workspace==='management' && isAdmin;
+    document.getElementById('personal-workspace').hidden=management;
+    document.getElementById('management-workspace').hidden=!management;
+    document.getElementById('management-workspace-button').hidden=!isAdmin;
+    for(const [id,selected] of [['personal-workspace-button',!management],['management-workspace-button',management]]) {
+      const button=document.getElementById(id);button.setAttribute('aria-pressed',String(selected));
+      button.className=selected?'btn-primary':'btn-muted';
+    }
+  }
   let currentConfig = '';
   let currentPeerName = '';
   let noticeVersion='';let browserPoll=0;let browserAvailable=false;
@@ -513,6 +538,8 @@
       document.getElementById('app').style.display = 'block';
       document.getElementById('admin-status').style.display = isAdmin ? 'block' : 'none';
       document.getElementById('admin-members').hidden = !isAdmin;
+      document.getElementById('personal-identity').textContent='Personal account: '+currentUser.email;
+      selectWorkspace('personal');
       document.getElementById('user-info').textContent = (isAdmin?'Administrator · ':'Member · ') + currentUser.email;
       loadAll();
       if(data.browserEnabled && mode.value==='browser') void openResearchBrowser();
@@ -553,7 +580,7 @@
       const d = await res.json();
       if (d.wg) document.getElementById('wg-status').textContent = d.wg;
       const b = document.getElementById('status-badge');
-      b.textContent = d.ok ? `UP · ${d.peerCount} peers` : 'DOWN';
+      b.textContent = d.ok ? 'VPN server available' : 'VPN server unavailable';
       b.className = 'badge' + (d.ok ? '' : ' danger');
       return d.ok;
     } catch { }
@@ -570,29 +597,37 @@
     const res = await apiFetch('/api/peers');
     if (!res.ok) throw Error('Unable to load peers');
     const list = await res.json();
-    const el = document.getElementById('peers-list');
+    renderPeerRows('peers-list',list.filter(p=>p.owner===currentUser.email),false);
+    if(isAdmin)renderPeerRows('admin-peers-list',list,true);
+  }
+
+  function renderPeerRows(target,list,management) {
+    const el = document.getElementById(target);
     el.replaceChildren();
-    if (!list.length) { el.textContent = 'No devices yet. Create one above.'; return; }
+    if (!list.length) { el.textContent = management?'No devices registered.':'You have no personal devices yet. Create your profile above.'; return; }
     for (const p of list) {
       const row=document.createElement('div'); row.className='peer-row';
       const info=document.createElement('div'); info.className='peer-info';
-      info.textContent=p.name + ' · ' + p.ip;
+      info.textContent=p.name + ' · ' + p.ip + (management?' · Owner: '+(p.owner || 'Unassigned'):'');
       row.append(info);
-      if(p.hasConfig) {
+      if(!management && p.hasConfig) {
         const link=document.createElement('a');link.className='btn-primary';
         link.href=`/api/peers/${encodeURIComponent(p.name)}/config`;link.download=p.name+'.conf';
         link.textContent='Download .conf';row.append(link);
-      } else if(p.hasConfig===false) {
+      } else if(!management && p.hasConfig===false) {
         const note=document.createElement('span');note.textContent='Imported device: use its original profile file.';row.append(note);
       }
-      for (const [label,action] of [['Setup / download',()=>viewConfig(p.name)],['Check connection',()=>checkConnection(p.name)],['Remove',()=>removePeer(p.name)]]) {
+      const actions=management
+        ? [['Check connection',()=>checkConnection(p.name)],['Revoke device',()=>removePeer(p.name)]]
+        : [['Setup / download',()=>viewConfig(p.name)],['Check connection',()=>checkConnection(p.name)],['Remove',()=>removePeer(p.name)]];
+      for (const [label,action] of actions) {
         const button=document.createElement('button');button.textContent=label;button.className='btn-muted';button.addEventListener('click',action);row.append(button);
       }
       el.append(row);
     }
   }
 
-  function loadAll() { if(isAdmin) loadMembers(); fetchStatus(); loadPeers().catch(()=>{document.getElementById('peers-list').textContent='Unable to load devices. Please refresh to retry.';}); }
+  function loadAll() { if(isAdmin) loadMembers(); fetchStatus(); loadPeers().catch(()=>{document.getElementById('peers-list').textContent='Unable to load devices. Please refresh to retry.';if(isAdmin)document.getElementById('admin-peers-list').textContent='Unable to load devices. Please refresh to retry.';}); }
 
   async function addPeer() {
     const name = document.getElementById('peer-name').value.trim();
