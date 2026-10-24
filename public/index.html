@@ -637,12 +637,14 @@
     for (const p of list) {
       const row=document.createElement('div'); row.className='peer-row';
       const info=document.createElement('div'); info.className='peer-info';
-      info.textContent=p.name + ' · ' + p.ip + (management?' · Owner: '+(p.owner || 'Unassigned'):'');
+      info.textContent=p.name + ' · ' + p.ip + (management?' · Owner: '+(p.owner || 'Unassigned'):'') + (p.needsRepair?' · Old configuration needs replacement':'');
       row.append(info);
       if(!management && p.hasConfig) {
         const link=document.createElement('a');link.className='btn-primary';
         link.href=`/api/peers/${encodeURIComponent(p.name)}/config`;link.download=p.name+'.conf';
         link.textContent='Download .conf';row.append(link);
+      } else if(!management && p.needsRepair) {
+        const note=document.createElement('span');note.textContent='Prepare a new configuration above for this device.';row.append(note);
       } else if(!management && p.hasConfig===false) {
         const note=document.createElement('span');note.textContent='Imported device: use its original profile file.';row.append(note);
       }

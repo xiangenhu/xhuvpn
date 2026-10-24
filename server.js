@@ -122,7 +122,7 @@ async function applyWireGuardConfig() {
   const {privKey, pubKey} = await getOrCreateServerKeys();
   const {value, generation} = await stateStore.read();
   // Disabled members are filtered again as defense in depth.
-  const peers=value.peers.filter(p=>value.users[p.owner]?.enabled!==false);
+  const peers=value.peers.filter(p=>!p.needsRepair && value.users[p.owner]?.enabled!==false);
   if(![pubKey,...value.peers.map(p=>p.pubKey)].every(k=>/^[A-Za-z0-9+/]{43}=$/.test(k))) throw Error('Invalid saved device key');
   const config=buildServerConfig(privKey,peers);
   if (!/^[A-Za-z0-9_-]{1,15}$/.test(WG_INTERFACE) || !/^\d+$/.test(String(generation))) throw Error('Invalid WireGuard settings');
@@ -375,7 +375,7 @@ app.use('/api/peers',(req,res,next)=>{res.set('Cache-Control','no-store');next()
 app.get('/api/peers', auth, route(async (req, res) => {
   const peers = await readPeers();
   const visible = filterPeersForUser(peers, req);
-  res.json(visible.map(({ privKey, ...safe }) => ({...safe,hasConfig:Boolean(privKey)})));
+  res.json(visible.map(({ privKey, ...safe }) => ({...safe,hasConfig:Boolean(privKey) && !safe.needsRepair})));
 }));
 
 // POST /api/peers  { name: "alice" }
@@ -427,6 +427,7 @@ app.get('/api/peers/:name/config', auth, requireConsent, route(async (req, res) 
   const peer  = peers.find(p => p.name === req.params.name);
   if (!peer) return res.status(404).json({ error: 'Peer not found' });
   if (!canAccessPeer(peer, req)) return res.status(403).json({ error: 'Not your peer' });
+  if (peer.needsRepair) return res.status(409).json({error:'This saved configuration no longer matches the VPN server. Prepare a new configuration for this device, then import the new file into WireGuard.'});
   if (!peer.privKey) return res.status(409).json({error:'This device was imported from the server. Keep using its existing file. To replace it, remove the device and create a new profile.'});
 
   const { pubKey: serverPubKey } = await getOrCreateServerKeys();

@@ -6,6 +6,8 @@ const {fakeBucket}=require('./fake-bucket');const {createOAuth}=require('../lib/
 test('HTTP portal: sole admin invites friend, friend cannot administer, disable revokes live session and peers',async t=>{
  const bucket=fakeBucket();let identity='xiangenhu@gmail.com',lastState,sshFails=false;const scripts=[];
  const manualKey='p'.repeat(43)+'=';let manualIP='10.8.0.2';
+ const staleKey='s'.repeat(43)+'=';
+ await bucket.file('peers.json').save(JSON.stringify([{name:'old-profile',ip:'10.8.0.2',pubKey:staleKey,privKey:'old-private',owner:'xiangenhu@gmail.com'}]));
  const serverKey='yBq5ZCvbOkpnai8JrC+qYiLrLIeit99QWiwW4ZGKbG0=';
  await bucket.file('server-keys.json').save(JSON.stringify({pubKey:serverKey,privKey:'test-only'}));
  const fakeProxy=async(url,options)=>{const body=JSON.parse(options.body);if(url.endsWith('/start'))lastState=body.state;return {ok:true,json:async()=>url.endsWith('/start')?{url:'https://oauth.skoonline.org/authorize'}:{user:{email:identity,provider:'google',email_verified:true}}};};
@@ -46,6 +48,9 @@ test('HTTP portal: sole admin invites friend, friend cannot administer, disable 
  const ownedByAdmin=await (await call('/api/peers',{cookie:admin.cookie})).json();
  assert.equal(ownedByAdmin.find(p=>p.pubKey===manualKey).owner,'xiangenhu@gmail.com');
  assert.equal(ownedByAdmin.find(p=>p.pubKey===manualKey).hasConfig,false);
+ assert.equal(ownedByAdmin.find(p=>p.pubKey===staleKey).needsRepair,true);
+ assert.equal(ownedByAdmin.find(p=>p.pubKey===staleKey).hasConfig,false);
+ assert.equal((await call('/api/peers/old-profile/config',{cookie:admin.cookie})).status,409);
  manualIP='10.8.0.99';
  const conflicting=await call('/api/peers',{cookie:friend.cookie,body:{name:'conflict-test'}});
  assert.equal(conflicting.status,409);assert.match((await conflicting.json()).error,/Device address differs from saved records/);
@@ -72,12 +77,14 @@ test('HTTP portal: sole admin invites friend, friend cannot administer, disable 
  sshFails=true;
  const disabled=await call('/api/admin/users/disable',{cookie:admin.cookie,body:{email:'friend@example.com'}});assert.equal(disabled.status,503);assert.equal((await disabled.json()).needsReconcile,true);
  assert.equal((await call('/api/me',{cookie:friend.cookie})).status,403);
- const all=await (await call('/api/peers',{cookie:admin.cookie})).json();assert.equal(all.length,2);assert.ok(all.some(p=>p.name==='owner-phone'));assert.ok(all.some(p=>p.pubKey===manualKey));
+ const all=await (await call('/api/peers',{cookie:admin.cookie})).json();assert.equal(all.length,3);assert.ok(all.some(p=>p.name==='owner-phone'));assert.ok(all.some(p=>p.pubKey===manualKey));
  sshFails=false;assert.equal((await call('/api/admin/reconcile',{cookie:admin.cookie,body:{}})).status,200);
  assert.equal((await call('/api/admin/users/disable',{cookie:admin.cookie,body:{email:'xiangenhu@gmail.com'}})).status,400);
  assert.ok(scripts.some(s=>s.includes('base64 -d | sudo -n bash')));
  for(const command of scripts.filter(s=>s.includes('base64 -d | sudo -n bash'))) {
    const script=Buffer.from(command.split("'")[3],'base64').toString();
+   const config=Buffer.from(script.match(/printf '%s' '([^']+)' \| base64 -d > "\$file"/)[1],'base64').toString();
+   assert.match(config,new RegExp(manualKey.replace(/[+]/g,'\\+')));assert.ok(!config.includes(staleKey));
    assert.equal(require('node:child_process').spawnSync('bash',['-n'],{input:script}).status,0);
  }
 });

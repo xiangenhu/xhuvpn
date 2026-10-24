@@ -29,5 +29,9 @@ test('member enrollment preserves manual peers under the administrator without r
  assert.equal(state.peers.length,1);assert.equal(state.peers[0].owner,'admin@example.com');
  assert.equal(state.peers[0].privKey,undefined);assert.equal(state.peers[0].pubKey,phone);
  assert.equal(preserveExistingDevices(state,inventory,'admin@example.com'),0);
- assert.throws(()=>preserveExistingDevices({peers:[{pubKey:server,ip:'10.8.0.2'}]},inventory,'admin@example.com'),/reserved/);
+ const stale={retiredPeerKeys:{[retired]:true},peers:[{pubKey:server,ip:'10.8.0.2',owner:'other@example.com',privKey:'keep-private'}]};
+ assert.equal(preserveExistingDevices(stale,inventory,'admin@example.com'),1);
+ assert.equal(stale.peers[0].needsRepair,true);assert.equal(stale.peers[0].owner,'other@example.com');assert.equal(stale.peers[0].privKey,'keep-private');
+ assert.equal(stale.peers[1].pubKey,phone);assert.equal(stale.peers[1].needsRepair,undefined);
+ assert.equal(preserveExistingDevices(stale,inventory,'admin@example.com'),0);
 });
