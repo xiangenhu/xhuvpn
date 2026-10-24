@@ -25,3 +25,14 @@ test('owner personal list excludes other members while management receives all d
  await load();assert.equal(rendered[0][0],'peers-list');assert.equal(rendered[0][1].length,1);assert.equal(rendered[0][1][0].name,'mine');
  assert.equal(rendered[1][0],'admin-peers-list');assert.equal(rendered[1][1].length,2);assert.equal(rendered[1][2],true);
 });
+test('unavailable services cannot remain selected from a previous visit',()=>{
+ const options=[{value:'wireguard',disabled:false},{value:'extension'},{value:'browser'}],elements={'extension-install':{}};
+ const mode={options,value:'extension'};let saved='extension',pending=false,choices=0;
+ const configSource=script.slice(script.indexOf('  function configureConnectionModes('),script.indexOf("  document.getElementById('wireguard-installed')"));
+ const configure=vm.runInNewContext(configSource+';configureConnectionModes',{
+  mode,document:{getElementById:id=>elements[id]},sessionStorage:{getItem:()=>pending?'ABCD-EF01-2345':null},localStorage:{getItem:()=>saved},chooseMode:()=>choices++
+ });
+ configure({extensionEnabled:false,browserEnabled:false});assert.equal(mode.value,'wireguard');assert.equal(options[1].disabled,true);assert.equal(options[2].disabled,true);assert.equal(elements['extension-install'].hidden,true);
+ configure({extensionEnabled:true,browserEnabled:false});assert.equal(mode.value,'extension');assert.match(options[1].textContent,/testing preview/);
+ pending=true;saved='wireguard';configure({extensionEnabled:true,browserEnabled:false});assert.equal(mode.value,'extension');assert.equal(choices,3);
+});

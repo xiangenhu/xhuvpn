@@ -273,16 +273,18 @@
   <section id="personal-workspace" aria-labelledby="personal-title">
   <div class="workspace-intro"><h2 id="personal-title">My VPN</h2><p>Set up your own devices, download your WireGuard profiles, or connect your browser.</p><p id="personal-identity"></p></div>
   <section class="section">
-    <h2>How would you like to connect?</h2>
+    <h2>Start here</h2>
+    <p>To connect this computer or phone, follow the WireGuard steps below. You only need to do the setup once for each device.</p>
+    <details><summary>Other connection options</summary>
     <label for="connection-mode">Connection mode</label>
-    <select id="connection-mode"><option value="extension">Browser extension — recommended for desktops</option><option value="wireguard">Whole device — WireGuard</option><option value="browser">Remote browser — optional server service</option></select>
-    <p>You can change this choice anytime. Changing modes here does not turn off WireGuard; use its on/off switch.</p>
+    <select id="connection-mode"><option value="wireguard">Connect this device with WireGuard</option><option value="extension" disabled>Browser extension preview — not available yet</option><option value="browser" disabled>Remote browser — not available yet</option></select>
+    <p>The extension preview requires manual installation and is intended for testing with Xiangen’s help. Changing this choice does not disconnect WireGuard.</p></details>
     <p class="research-reminder">Created by Xiangen Hu for colleagues and research teams. Research use only. Do not distribute access without permission. You are responsible for your internet activity and improper use.</p>
   </section>
   <section id="extension-panel" class="section">
     <h2>A connection for your browser</h2>
     <p>Install once, then use Connect / Disconnect in the extension. No WireGuard app or configuration file is needed for this mode. Regular web tabs in this browser use the research proxy; other apps and private windows do not.</p>
-    <p><a class="btn-primary" href="/extension-setup.html" target="_blank" rel="noopener">Get the browser extension</a></p>
+    <p id="extension-install" hidden><a class="btn-primary" href="/extension-setup.html" target="_blank" rel="noopener">Extension preview instructions</a></p>
     <p id="extension-status" role="status"></p>
     <div id="extension-approval" hidden>
       <h3>Approve this browser</h3><p id="extension-request"></p>
@@ -306,38 +308,49 @@
 
   <div id="wireguard-panel"><div class="section">
     <h2>Set up this device</h2>
-    <p>Install WireGuard once, then create and import your personal profile. No commands or manual keys are needed.</p>
-    <p><a class="btn-muted" href="https://www.wireguard.com/install/" target="_blank" rel="noopener">1. Download WireGuard</a></p>
+    <h3>1. Open WireGuard</h3>
+    <p>If WireGuard is already installed, open it and leave it open. Otherwise <a href="https://www.wireguard.com/install/" target="_blank" rel="noopener">download and install WireGuard</a>, then return to this page.</p>
+    <p><button class="btn-primary" id="wireguard-installed" type="button">WireGuard is open — continue</button></p>
+    <div id="profile-create-step" hidden>
+    <h3 tabindex="-1" id="prepare-profile-title">2. Get your configuration file</h3>
+    <p>This website creates the file that WireGuard needs. Keep the suggested device name, then click the button below.</p>
+    <details><summary>Change device type or name</summary>
     <label for="device-platform">Device type</label>
     <select id="device-platform"><option value="windows">Windows</option><option value="mac">Mac</option><option value="mobile">iPhone / iPad / Android</option><option value="linux">Linux</option></select>
     <div class="row">
       <input type="text" id="peer-name" aria-label="Device name" placeholder="Device name (e.g. My-Windows)" />
-      <button class="btn-primary" id="add-btn" onclick="addPeer()">2. Create my profile</button>
-    </div>
+    </div></details>
+    <p><button class="btn-primary" id="add-btn" onclick="addPeer()">Prepare my configuration file</button></p>
     <div id="add-msg" role="status" aria-live="polite" tabindex="-1"></div>
     <section id="profile-problem" class="card" hidden>
       <h3>Profile setup did not complete</h3>
-      <p><strong>No new file is ready to import.</strong> The message above stays on this page so you can read or copy it. Installing WireGuard does not create the profile.</p>
-      <p>Check <strong>My devices</strong> below first. If this device is listed, use its <strong>Download .conf</strong> link. If it is not listed, the server must finish creating it before a file can be downloaded.</p>
-      <p>If the message mentions server setup, connection or synchronization, the administrator needs to resolve that problem. Do not keep creating duplicate devices.</p>
+      <p><strong>Your file is not ready. Leave WireGuard as it is.</strong></p>
+      <p>If your device appears under <strong>My saved configurations</strong>, use its download button. Otherwise <a href="mailto:xiangenhu@gmail.com?subject=VPN%20setup%20help">contact Xiangen for help</a> and include the message above. You do not need to change server settings.</p>
     </section>
     <section id="profile-result" class="card" hidden>
-      <h3>Your profile file</h3>
+      <h3 tabindex="-1" id="profile-ready-inline">Your configuration file is ready</h3>
       <p id="profile-filename"></p>
       <p><a class="btn-primary" id="profile-download">Download .conf</a></p>
-      <ol><li>Click the download link above. Choose a folder if asked, or look in your browser’s Downloads list.</li><li>Open WireGuard. Choose <strong>Add tunnel → Import tunnel(s) from file</strong> (or the import option on your device), then select this <strong>.conf</strong> file.</li><li>Select the imported tunnel and choose <strong>Activate</strong>.</li></ol>
-      <p><strong>These instructions and the download link stay here after you close the setup window.</strong> You can also download the file again from My devices.</p>
+      <p>Click the download button above. The file ends in <strong>.conf</strong>. Save it in <strong>Downloads</strong> if your browser asks where to save it.</p>
+      <h3>3. Load the file into WireGuard</h3>
+      <p id="inline-import-instructions">In WireGuard, click <strong>Import tunnel(s) from file</strong>. If you do not see that button, choose <strong>Add tunnel → Import tunnel(s) from file</strong>. Select the file named above from Downloads, then click Open.</p>
+      <details><summary>I cannot find the downloaded file</summary><p>Open your browser’s Downloads list (Ctrl+J in most Windows browsers). Find the file named above and choose Show in folder. You can use the download button again to save another copy.</p></details>
+      <h3>4. Turn on the connection</h3><p>In WireGuard, select your imported configuration and click <strong>Activate</strong>. The website does not turn it on for you.</p>
+      <p><button class="btn-muted" type="button" onclick="checkConnection(inlinePeerName)">Check whether my device connected</button></p><p id="inline-connection-result" role="status"></p>
+      <p><strong>These instructions and the download link stay here after you close the setup window.</strong> You can also download the file again from My saved configurations.</p>
     </section>
+    </div>
   </div>
 
   <div class="section">
-    <h2>My devices</h2>
+    <h2>My saved configurations</h2>
+    <p>Already set up this device? Download its saved file here. You do not need to create another one each time you connect.</p>
     <p>Turn the VPN on or off in WireGuard. Removing a device here revokes its server access; it does not turn off the tunnel on that device.</p>
     <div id="peers-list">Loading...</div>
   </div>
 
   <div class="section">
-    <h2>Get WireGuard App</h2>
+    <details><summary>WireGuard downloads for other devices</summary>
     <div class="downloads-grid">
       <a class="dl-card" href="#" onclick="downloadApp('msi');return false">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 12V6.75l6-1.32v6.48L3 12zm6.27.09l8.73.01V5.28l-8.73 1.56V12.09zM3 13l6 .09v6.81l-6-1.08V13zm6.27-.01v6.82l8.73 1.47V13.01l-8.73-.02z"/></svg>
@@ -363,6 +376,7 @@
     <div style="margin-top:.8rem;font-size:.75rem;color:var(--muted)">
       Install the official WireGuard app, then import your device configuration or scan its QR code. Linux: <a href="https://www.wireguard.com/install/">installation instructions</a>. Keep configurations private.
     </div>
+    </details>
   </div>
 </div>
 
@@ -394,7 +408,7 @@
     <p id="member-status" role="status"></p>
     <details><summary>Connection maintenance</summary><p>If a device change did not reach the VPN server, retry synchronization.</p><button class="btn-muted" id="retry-sync">Retry VPN synchronization</button></details>
   </section>
-    <section class="section"><h2>All VPN devices</h2><p>Includes your devices and members’ devices. Each row shows its owner. Revoking a device removes its server access.</p><div id="admin-peers-list">Loading devices…</div></section>
+    <section class="section"><h2>All VPN devices</h2><p>Includes your devices and members’ devices. Each row shows its owner. Revoking a device removes its server access.</p><div id="admin-peers-list">Loading devices…</div><p id="admin-connection-result" role="status"></p></section>
   </section>
 
 </div>
@@ -443,17 +457,31 @@
   }
   let currentConfig = '';
   let currentPeerName = '';
+  let inlinePeerName = '';
   let noticeVersion='';let browserPoll=0;let browserAvailable=false;
   const mode=document.getElementById('connection-mode');
-  function chooseMode() {
+  function chooseMode(save=true) {
     document.getElementById('wireguard-panel').hidden=mode.value!=='wireguard';
     document.getElementById('browser-panel').hidden=mode.value!=='browser';
     document.getElementById('extension-panel').hidden=mode.value!=='extension';
-    localStorage.setItem('vpn_connection_mode',mode.value);
+    if(save)localStorage.setItem('vpn_connection_mode',mode.value);
   }
-  mode.value=['wireguard','browser','extension'].includes(localStorage.getItem('vpn_connection_mode'))?localStorage.getItem('vpn_connection_mode'):'extension';
-  if(sessionStorage.getItem('vpn_extension_code'))mode.value='extension';
-  mode.addEventListener('change',chooseMode);chooseMode();
+  mode.value='wireguard';
+  mode.addEventListener('change',chooseMode);chooseMode(false);
+  function configureConnectionModes(data) {
+    for(const option of mode.options) {
+      if(option.value==='extension'){option.disabled=!data.extensionEnabled;option.textContent=data.extensionEnabled?'Browser extension — testing preview':'Browser extension — not available yet';}
+      if(option.value==='browser'){option.disabled=!data.browserEnabled;option.textContent=data.browserEnabled?'Open a remote research browser':'Remote browser — not available yet';}
+    }
+    const desired=sessionStorage.getItem('vpn_extension_code')?'extension':localStorage.getItem('vpn_connection_mode');
+    mode.value=Array.from(mode.options).some(o=>o.value===desired && !o.disabled)?desired:'wireguard';
+    document.getElementById('extension-install').hidden=!data.extensionEnabled;
+    chooseMode();
+  }
+  document.getElementById('wireguard-installed').addEventListener('click',()=>{
+    document.getElementById('profile-create-step').hidden=false;
+    document.getElementById('prepare-profile-title').focus();
+  });
   document.getElementById('save-consent').addEventListener('click',async()=>{
     if(!document.getElementById('accept-notice').checked) {document.getElementById('consent-status').textContent='Please check the agreement box to continue.';return;}
     try {await jsonRequest('/api/consent',{version:noticeVersion,accept:true});await enterApp();}
@@ -530,9 +558,10 @@
       if(!data.accepted){document.getElementById('app').style.display='none';return;}
       document.getElementById('browser-start').disabled=!data.browserEnabled;
       browserAvailable=data.browserEnabled;
+      configureConnectionModes(data);
       document.getElementById('browser-stop').disabled=!data.browserEnabled;
       if(!data.browserEnabled) document.getElementById('browser-status').textContent='The optional remote-browser server is not configured. Use the extension or WireGuard instead.';
-      document.getElementById('extension-status').textContent=data.extensionEnabled?'The extension service is configured. Open the extension and click Connect to approve this browser.':'The extension is awaiting its one-time proxy server setup. You can install it now; Connect will explain when the server is unavailable.';
+      document.getElementById('extension-status').textContent=data.extensionEnabled?'Testing preview: ask Xiangen to help install the extension. After installation, open it and click Connect.':'Browser connections are not available yet. Please use the WireGuard setup steps.';
       void loadExtensionConnections();
       if(sessionStorage.getItem('vpn_extension_code'))void loadExtensionApproval();
       document.getElementById('app').style.display = 'block';
@@ -645,19 +674,19 @@
     try {
       const data = await jsonRequest('/api/peers',{name},{signal:controller.signal});
       if(typeof data.config!=='string' || !data.config.includes('[Interface]') || typeof data.name!=='string')
-        throw Error('The server did not return a downloadable profile. Check My devices before creating another profile.');
+        throw Error('The server did not return a downloadable profile. Check My saved configurations before creating another profile.');
       msgEl.textContent = `Device "${name}" created at ${data.ip}`;
       suggestDeviceName();
-      showModal(data.name, data.config, data.qr);
+      showModal(data.name, data.config, data.qr,devicePlatform.value==='mobile');
       msgEl.textContent=`Profile created: ${data.name}.conf. Click Download in the setup window or in Your profile file below to save it. Then import that file into WireGuard. These instructions stay on the page.`;
     } catch(e) {
       msgEl.textContent=controller.signal.aborted
-        ? 'Profile creation took too long. Check My devices below before trying again: the profile may already have been saved. Use Setup / download if it appears there.'
+        ? 'Profile creation took too long. Check My saved configurations below before trying again: the profile may already have been saved. Use Setup / download if it appears there.'
         : e.message;
       document.getElementById('profile-problem').hidden=false;
       msgEl.focus();msgEl.scrollIntoView({block:'center',behavior:'smooth'});
     }
-    finally {clearTimeout(timer);btn.disabled=false;btn.textContent='2. Create my profile';loadAll();}
+    finally {clearTimeout(timer);btn.disabled=false;btn.textContent='Prepare my configuration file';loadAll();}
   }
 
   async function viewConfig(name) {
@@ -682,14 +711,16 @@
 
   // ── Modal ──────────────────────────────────────────────────────────
 
-  function showModal(name, config, qr) {
-    if(typeof config!=='string' || !config.includes('[Interface]'))throw Error('No downloadable profile was returned. Check My devices before creating another profile.');
+  function showModal(name, config, qr, openDialog=true) {
+    if(typeof config!=='string' || !config.includes('[Interface]'))throw Error('No downloadable profile was returned. Check My saved configurations before creating another profile.');
     const file=name+'.conf',href=`/api/peers/${encodeURIComponent(name)}/config`;
+    inlinePeerName=name;
     for(const id of ['profile-download','modal-download']) {
       const link=document.getElementById(id);link.href=href;link.download=file;link.textContent='Download '+file;
     }
     document.getElementById('profile-filename').textContent='File name: '+file;
     document.getElementById('profile-result').hidden=false;
+    document.getElementById('profile-create-step').hidden=false;
     document.getElementById('profile-problem').hidden=true;
     const platform=document.getElementById('device-platform').value;
     document.getElementById('profile-steps').hidden=platform==='mobile' || platform==='linux';
@@ -697,6 +728,11 @@
       ? 'In WireGuard, tap + and scan this QR code from another screen, or download this file and import it on this device. Activate the tunnel, then check the connection.'
       : platform==='linux' ? 'Download this profile and import it using your Linux network manager’s WireGuard import option. Activate it, then check the connection.'
       : 'Download the .conf file. In WireGuard choose Add tunnel → Import from file, select the downloaded file, then Activate. Return here to check the connection.';
+    document.getElementById('inline-import-instructions').textContent=platform==='mobile'
+      ? 'Download the file above. In WireGuard, tap +, choose Import from file or archive, and select that file. Then turn on the switch beside its name.'
+      : platform==='linux' ? 'Download the file above. Open your network settings and use the WireGuard import option to select that file. Then enable the connection.'
+      : 'In WireGuard, click Import tunnel(s) from file. If you do not see that button, choose Add tunnel → Import tunnel(s) from file. Select the file named above from Downloads, then click Open.';
+    document.getElementById('inline-connection-result').textContent='';
     document.getElementById('connection-result').textContent='';
     document.getElementById('config-details').open=false;
     currentPeerName = name; currentConfig = config;
@@ -704,8 +740,12 @@
     document.getElementById('modal-config').textContent = config;
     const qrEl = document.getElementById('modal-qr');
     if (qr) { qrEl.src = qr; qrEl.style.display = 'block'; } else { qrEl.style.display = 'none'; }
-    document.getElementById('config-modal').classList.add('open');
-    document.getElementById('profile-dialog').focus();
+    if(openDialog) {
+      document.getElementById('config-modal').classList.add('open');
+      document.getElementById('profile-dialog').focus();
+    } else {
+      const result=document.getElementById('profile-ready-inline');result.focus();result.scrollIntoView({block:'start',behavior:'smooth'});
+    }
   }
 
   function closeModal() {
@@ -723,13 +763,12 @@
     catch(e){el.textContent=e.message;}finally{button.disabled=false;}
   }
   async function checkConnection(name) {
+    const result=document.getElementById(document.getElementById('config-modal').classList.contains('open')?'connection-result':!document.getElementById('management-workspace').hidden?'admin-connection-result':'inline-connection-result');
     try {
       const res=await apiFetch(`/api/peers/${encodeURIComponent(name)}/connection`);
       const d=await res.json();if(!res.ok)throw Error(d.error || 'Connection check failed');
-      const message=d.recentHandshake ? 'The VPN server received a recent handshake from this device. Open a website on that device to confirm browsing.' : 'No recent handshake. Activate this profile in WireGuard, then check again.';
-      if(document.getElementById('config-modal').classList.contains('open')) document.getElementById('connection-result').textContent=message;
-      else alert(name+': '+message);
-    }catch(e){alert(e.message);}
+      result.textContent=d.recentHandshake ? name+': this device recently connected to the VPN server. Open a website on that device to confirm browsing.' : name+': the server has not seen a recent connection. Click Activate in WireGuard, then check again.';
+    }catch(e){result.textContent=e.message;}
   }
 
   function downloadConfig() {

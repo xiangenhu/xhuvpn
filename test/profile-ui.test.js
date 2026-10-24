@@ -37,13 +37,13 @@ test('failed preflight stays visible and does not pretend to create a profile',a
 test('client timeout directs users to saved devices instead of silently retrying creation',async()=>{
  const f=fixture((path,body,{signal})=>new Promise((resolve,reject)=>signal.addEventListener('abort',()=>reject(Error('aborted')))));
  const pending=f.addPeer();f.timeout();await pending;
- assert.match(f.elements['add-msg'].textContent,/Check My devices/);assert.equal(f.calls(),1);assert.equal(f.opened.length,0);
+ assert.match(f.elements['add-msg'].textContent,/Check My saved configurations/);assert.equal(f.calls(),1);assert.equal(f.opened.length,0);
 });
 test('profile instructions remain open until explicit dismissal and focus follows the dialog',()=>{
  const elements={};
  const names=new Set();
- for(const id of ['profile-download','modal-download','profile-filename','profile-result','profile-problem','device-platform','profile-steps','setup-instructions','connection-result','config-details','modal-title','modal-config','modal-qr','config-modal','profile-dialog','add-btn'])
-  elements[id]={value:'windows',style:{},focus(){this.focused=true;},removeAttribute(key){delete this[key];},classList:{add:name=>names.add(name),remove:name=>names.delete(name)}};
+ for(const id of ['inline-import-instructions','inline-connection-result','profile-create-step','profile-ready-inline','profile-download','modal-download','profile-filename','profile-result','profile-problem','device-platform','profile-steps','setup-instructions','connection-result','config-details','modal-title','modal-config','modal-qr','config-modal','profile-dialog','add-btn'])
+  elements[id]={value:'windows',style:{},scrollIntoView(){},focus(){this.focused=true;},removeAttribute(key){delete this[key];},classList:{add:name=>names.add(name),remove:name=>names.delete(name)}};
  const modalSource=script.slice(script.indexOf('  function showModal('),script.indexOf('  async function importDevices('));
  const modal=vm.runInNewContext(modalSource+';({showModal,closeModal})',{
   document:{getElementById:id=>elements[id]},currentConfig:'',currentPeerName:'',
@@ -61,6 +61,9 @@ test('profile instructions remain open until explicit dismissal and focus follow
  assert.equal(elements['modal-config'].textContent,'');
  elements['device-platform'].value='mobile';modal.showModal('Phone','[Interface]','qr');
  assert.equal(elements['profile-steps'].hidden,true);assert.match(elements['setup-instructions'].textContent,/scan this QR code/);
+ modal.closeModal();elements['device-platform'].value='windows';modal.showModal('Desktop','[Interface]','qr',false);
+ assert.equal(names.has('open'),false);assert.equal(elements['profile-create-step'].hidden,false);assert.equal(elements['profile-result'].hidden,false);
+ assert.equal(elements['profile-ready-inline'].focused,true);assert.equal(elements['profile-download'].download,'Desktop.conf');
  assert.throws(()=>modal.showModal('Broken',undefined,''),/No downloadable profile/);
 });
 test('opening an unavailable saved profile leaves a readable error on the page',async()=>{
