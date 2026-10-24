@@ -340,6 +340,28 @@ app.post('/api/access/request',auth,route(async(req,res)=>{
   res.json({requested:true,...delivery});
 }));
 
+// Collection requires the existing administrator session and CSRF checks.
+const traffic=require('./lib/traffic');
+async function collectTraffic(){
+  if(!/^[A-Za-z0-9_-]{1,15}$/.test(WG_INTERFACE))throw Error('Invalid interface');
+  const ssh=await connectSSH();let samples;
+  const now=Date.now();
+  try {
+    const result=await runSSH(ssh,`sudo -n wg show ${WG_INTERFACE} dump`);
+    if(result.code!==0)throw Error('Statistics unavailable');
+    samples=traffic.parseDump(result.stdout);
+  }finally{ssh.dispose();}
+  await stateStore.update(state=>traffic.record(state,samples,now));
+  return traffic.summary((await stateStore.read()).value);
+}
+app.get('/api/admin/traffic',auth,adminOnly,route(async(req,res)=>{
+  res.set('Cache-Control','no-store');
+  res.json(traffic.summary((await stateStore.read()).value));
+}));
+app.post('/api/admin/traffic/collect',auth,adminOnly,route(async(req,res)=>{
+  res.set('Cache-Control','no-store');res.json(await collectTraffic());
+}));
+
 app.get('/api/admin/users', auth, adminOnly, route(async (req,res)=>res.json(await access.summary())));
 app.post('/api/admin/invitations', auth, adminOnly, route(async (req,res)=>{
   const invitation=await access.invite(req.body.email);
@@ -532,3 +554,4 @@ if (require.main === module) app.listen(API_PORT, '0.0.0.0', () => {
   console.log(`GCE host   : ${GCE_HOST}`);
   console.log(`WG endpoint: ${SERVER_ENDPOINT}:${SERVER_PORT}`);
 });
+
