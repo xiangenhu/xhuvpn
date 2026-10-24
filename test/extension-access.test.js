@@ -57,3 +57,15 @@ test('three-session quota, ten-minute request expiry and loss of approval are en
  await assert.rejects(f.access.info(pending.userCode),e=>e.status===404);
  await assert.rejects(f.access.exchange(pending.deviceCode,f.verifier),e=>e.status===400);
 });
+test('automatic signed-in connection requires the local verifier and current granted account',async()=>{
+ const f=fixture(),pair=await f.access.start(f.challenge,'Firefox','auto');
+ await assert.rejects(f.access.completeSignIn(pair.deviceCode,'x'.repeat(43),'friend@example.com'),e=>e.status===400);
+ await assert.rejects(f.access.completeSignIn(pair.deviceCode,f.verifier,'uninvited@example.com'),e=>e.status===403);
+ f.state().consent['friend@example.com'].version='old';
+ await assert.rejects(f.access.completeSignIn(pair.deviceCode,f.verifier,'friend@example.com'),e=>e.status===403);
+ f.state().consent['friend@example.com'].version='v1';
+ await f.access.completeSignIn(pair.deviceCode,f.verifier,'friend@example.com');
+ const session=await f.access.exchange(pair.deviceCode,f.verifier);
+ assert.equal(session.status,'connected');assert.equal((await f.access.verify(session.id,session.password)).ok,true);
+ await assert.rejects(f.access.completeSignIn(pair.deviceCode,f.verifier,'friend@example.com'),e=>e.status===400);
+});

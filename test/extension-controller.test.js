@@ -8,7 +8,7 @@ async function fixture(firefox) {
  const opened=[];
  const api={storage:{local:{get:async()=>structuredClone(stored),set:async value=>{stored=structuredClone(value);}}},
   action:{setBadgeText:async()=>{},setBadgeBackgroundColor:async()=>{}},alarms:{create:async()=>{},onAlarm:event()},
-  tabs:{create:async value=>opened.push(value)},runtime:{id:'unit-extension',onMessage:event(),onStartup:event(),onInstalled:event()},
+  tabs:{create:async value=>{opened.push(value);return {id:7};}},runtime:{id:'unit-extension',onMessage:event(),onStartup:event(),onInstalled:event()},
   proxy:{settings:{get:async()=>({levelOfControl:conflict?'controlled_by_other_extensions':owned?'controlled_by_this_extension':'controllable_by_this_extension'}),set:async value=>{owned=true;settings=value;},clear:async()=>{owned=false;settings=null;}},onProxyError:event()},
   privacy:{network:{}},webRequest:{onAuthRequired:event(),onCompleted:event(),onErrorOccurred:event()}};
  const privacy={set:async value=>{privacyOwned=true;privacyValue=value.value;},get:async()=>({levelOfControl:privacyOwned?'controlled_by_this_extension':'controllable_by_this_extension'}),clear:async()=>{privacyOwned=false;privacyValue=undefined;}};
@@ -26,12 +26,12 @@ async function fixture(firefox) {
     return {ok:true,json:async()=>data};
   }};
  vm.runInNewContext(source,context);
- const send=action=>new Promise(resolve=>{api.runtime.onMessage.listeners[0]({action},{id:api.runtime.id},resolve);});
+ const send=(action,sender={id:api.runtime.id})=>new Promise(resolve=>{api.runtime.onMessage.listeners[0]({action},sender,resolve);});
  return {api,opened,send,approve:()=>{approved=true;},conflict:()=>{conflict=true;},stored:()=>stored,settings:()=>settings,privacy:()=>privacyValue,revoked:()=>revoked,session:result};
 }
 for(const firefox of [false,true])test(`${firefox?'Firefox':'Chromium'} controller pairs, applies proxy, limits auth and restores settings on disconnect`,async()=>{
  const f=await fixture(firefox);
- assert.equal((await f.send('connect')).mode,'pairing');assert.equal(f.opened.length,1);assert.ok(f.opened[0].url.endsWith('#extension=ABCD-EF01-2345'));
+ assert.equal((await f.send('connect')).mode,'pairing');assert.equal(f.opened.length,1);assert.ok(f.opened[0].url.endsWith('?extension=connect'));
  assert.equal((await f.send('status')).mode,'pairing');f.approve();assert.equal((await f.send('status')).mode,'connected');
  assert.equal(f.privacy(),firefox?false:'disable_non_proxied_udp');
  if(firefox){
@@ -50,4 +50,16 @@ for(const firefox of [false,true])test(`${firefox?'Firefox':'Chromium'} controll
 test('a conflicting proxy extension rolls back a new grant instead of reporting connected',async()=>{
  const f=await fixture(false);await f.send('connect');f.approve();f.conflict();
  const status=await f.send('status');assert.equal(status.mode,'off');assert.match(status.problem,/Another extension/);assert.equal(f.revoked(),true);
+});
+
+test('only the extension-opened portal tab can obtain its sign-in proof and finish automatically',async()=>{
+ const f=await fixture(false);await f.send('connect');
+ for(const sender of [{id:f.api.runtime.id,tab:{id:8},frameId:0,url:'https://vpn.skoonline.org/'},{id:f.api.runtime.id,tab:{id:7},frameId:1,url:'https://vpn.skoonline.org/'},{id:f.api.runtime.id,tab:{id:7},frameId:0,url:'https://evil.example/'}]) {
+  const result=await f.send('signInRequest',sender);assert.equal(result.verifier,undefined);assert.equal(result.deviceCode,undefined);
+ }
+ const sender={id:f.api.runtime.id,tab:{id:7},frameId:0,url:'https://vpn.skoonline.org/'};
+ const request=await f.send('signInRequest',sender);assert.match(request.verifier,/^[A-Za-z0-9_-]{43}$/);
+ f.approve();assert.equal((await f.send('finishSignIn',sender)).mode,'connected');
+ assert.equal((await f.send('signInRequest',sender)).verifier,undefined);
+ assert.equal((await f.send('disconnect',sender)).mode,'connected');
 });

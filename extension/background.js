@@ -42,7 +42,7 @@ async function poll() {
   const result=await api('pair/token',{deviceCode:state.pair.deviceCode,verifier:state.pair.verifier});
   if(result.status==='pending')return;
   if(!ResearchProxy.validSession(result))throw Error('The portal returned invalid proxy settings.');
-  state.active=result;state.pair=null;
+  state.active={...result,loginTabId:state.pair.tabId};state.pair=null;
   // Persist before installing settings: service-worker restarts retain authentication.
   await save();
   try {await policy(true);problem='';}
@@ -53,7 +53,7 @@ async function poll() {
 }
 async function start() {
   if(state.active)throw Error('Disconnect this connection before starting a new one.');
-  if(state.pair){await ext.tabs.create({url:PORTAL+'/#extension='+state.pair.userCode});return;}
+  if(state.pair){await openSignIn();return;}
   const bytes=crypto.getRandomValues(new Uint8Array(32));
   const encode=buffer=>btoa(String.fromCharCode(...new Uint8Array(buffer))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
   const verifier=encode(bytes),challenge=encode(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(verifier)));
@@ -62,7 +62,12 @@ async function start() {
   if(!/^[A-Za-z0-9_-]{43}$/.test(result.deviceCode) || !/^[A-F0-9]{4}(-[A-F0-9]{4}){2}$/.test(result.userCode) || !Number.isFinite(result.expires))throw Error('Invalid connection request.');
   state.pair={...result,verifier};problem='';await save();
   await ext.alarms.create('research-connection',{periodInMinutes:0.5});
-  await ext.tabs.create({url:PORTAL+'/#extension='+result.userCode});
+  await openSignIn();
+}
+async function openSignIn() {
+  const tab=await ext.tabs.create({url:PORTAL+'/?extension=connect'});
+  if(!Number.isInteger(tab.id))throw Error('Unable to open the sign-in tab.');
+  state.pair.tabId=tab.id;await save();
 }
 async function disconnect() {
   const active=state.active;let revoked=true;
@@ -76,6 +81,17 @@ function status() {return {mode:state.active?(state.active.expires>Date.now()?'c
 ext.runtime.onMessage.addListener((message,sender,reply)=>{
   if(sender.id!==ext.runtime.id)return;
   serialize(async()=>{
+    if(sender.tab) {
+      const trusted=sender.frameId===0 && new URL(sender.url).origin===PORTAL &&
+        sender.tab.id===(state.pair?.tabId ?? state.active?.loginTabId);
+      if(!trusted)throw Error('This tab did not start the extension sign-in.');
+      if(message?.action==='signInRequest') {
+        if(state.pair && state.pair.expires>Date.now())return {mode:'pairing',deviceCode:state.pair.deviceCode,verifier:state.pair.verifier};
+        return status();
+      }
+      if(message?.action==='finishSignIn'){await poll();return status();}
+      throw Error('This action is available only in the extension.');
+    }
     if(message?.action==='connect')await start();
     else if(message?.action==='disconnect')await disconnect();
     else if(message?.action==='status')await poll();

@@ -30,7 +30,7 @@ test('unavailable services cannot remain selected from a previous visit',()=>{
  const mode={options,value:'extension'};let saved='extension',pending=false,choices=0;
  const configSource=script.slice(script.indexOf('  function configureConnectionModes('),script.indexOf("  document.getElementById('wireguard-installed')"));
  const configure=vm.runInNewContext(configSource+';configureConnectionModes',{
-  mode,document:{getElementById:id=>elements[id]},sessionStorage:{getItem:()=>pending?'ABCD-EF01-2345':null},localStorage:{getItem:()=>saved},chooseMode:()=>choices++
+  URLSearchParams,location:{search:''},mode,document:{getElementById:id=>elements[id]},sessionStorage:{getItem:()=>pending?'ABCD-EF01-2345':null},localStorage:{getItem:()=>saved},chooseMode:()=>choices++
  });
  configure({extensionEnabled:false,browserEnabled:false});assert.equal(mode.value,'wireguard');assert.equal(options[1].disabled,true);assert.equal(options[2].disabled,true);assert.equal(elements['extension-install'].hidden,true);
  configure({extensionEnabled:true,browserEnabled:false});assert.equal(mode.value,'extension');assert.match(options[1].textContent,/testing preview/);

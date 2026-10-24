@@ -20,5 +20,5 @@ test('both extension packages declare browser-specific auth and background APIs 
  assert.ok(chrome.permissions.includes('webRequestAuthProvider'));assert.ok(!chrome.permissions.includes('webRequestBlocking'));
  assert.ok(firefox.permissions.includes('webRequestBlocking'));assert.ok(firefox.background.scripts.includes('core.js'));
  for(const m of [chrome,firefox])assert.equal(m.incognito,'not_allowed');
- for(const file of ['core.js','background.js','popup.js'])new vm.Script(fs.readFileSync(require.resolve('../extension/'+file),'utf8'));
+ for(const file of ['core.js','background.js','signin.js','popup.js'])new vm.Script(fs.readFileSync(require.resolve('../extension/'+file),'utf8'));
 });

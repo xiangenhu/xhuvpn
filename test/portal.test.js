@@ -54,7 +54,7 @@ test('HTTP portal: sole admin invites friend, friend cannot administer, disable 
  // The same member can approve and connect their own extension without admin.
  const verifier='v'.repeat(43),challenge=require('node:crypto').createHash('sha256').update(verifier).digest('base64url');
  const pair=await (await call('/api/extension/pair/start',{body:{challenge,browser:'Firefox'}})).json();
- assert.equal((await call('/api/extension/pair/approve',{cookie:friend.cookie,body:{code:pair.userCode}})).status,200);
+ assert.equal((await call('/api/extension/pair/complete',{cookie:friend.cookie,body:{deviceCode:pair.deviceCode,verifier}})).status,200);
  const extension=await (await call('/api/extension/pair/token',{body:{deviceCode:pair.deviceCode,verifier}})).json();
  assert.equal(extension.status,'connected');
  const connections=await (await call('/api/extension/sessions',{cookie:friend.cookie})).json();assert.equal(connections.length,1);

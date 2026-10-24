@@ -473,7 +473,7 @@
       if(option.value==='extension'){option.disabled=!data.extensionEnabled;option.textContent=data.extensionEnabled?'Browser extension — testing preview':'Browser extension — not available yet';}
       if(option.value==='browser'){option.disabled=!data.browserEnabled;option.textContent=data.browserEnabled?'Open a remote research browser':'Remote browser — not available yet';}
     }
-    const desired=sessionStorage.getItem('vpn_extension_code')?'extension':localStorage.getItem('vpn_connection_mode');
+    const desired=(sessionStorage.getItem('vpn_extension_code') || new URLSearchParams(location.search).get('extension')==='connect')?'extension':localStorage.getItem('vpn_connection_mode');
     mode.value=Array.from(mode.options).some(o=>o.value===desired && !o.disabled)?desired:'wireguard';
     document.getElementById('extension-install').hidden=!data.extensionEnabled;
     chooseMode();
@@ -561,7 +561,7 @@
       configureConnectionModes(data);
       document.getElementById('browser-stop').disabled=!data.browserEnabled;
       if(!data.browserEnabled) document.getElementById('browser-status').textContent='The optional remote-browser server is not configured. Use the extension or WireGuard instead.';
-      document.getElementById('extension-status').textContent=data.extensionEnabled?'Testing preview: ask Xiangen to help install the extension. After installation, open it and click Connect.':'Browser connections are not available yet. Please use the WireGuard setup steps.';
+      document.getElementById('extension-status').textContent=data.extensionEnabled?'Testing preview: ask Xiangen to help install the extension. After installation, click Sign in & connect. An approved account connects automatically.':'Browser connections are not available yet. Please use the WireGuard setup steps.';
       void loadExtensionConnections();
       if(sessionStorage.getItem('vpn_extension_code'))void loadExtensionApproval();
       document.getElementById('app').style.display = 'block';

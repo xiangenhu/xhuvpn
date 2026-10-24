@@ -7,17 +7,21 @@ Cloud Run itself does not terminate CONNECT tunnels.
 
 ## User flow
 
-1. Install the package for the browser, then pin Research Network to its toolbar.
-2. Click Connect. The portal opens; sign in using the existing Google or verified
-   SKO email account. Existing VPN approval and consent rules still apply.
-3. Compare the three-part code with the extension and approve this browser.
-4. Reopen the extension to complete the connection. Connect/Disconnect controls
-   regular web traffic without WireGuard installation or configuration files.
+1. Install the extension once, then pin Research Network to its toolbar.
+2. Click Sign in & connect. Sign in on the portal tab it opens.
+3. An approved account with current research-use consent connects automatically.
+   No code comparison, separate browser-approval button or WireGuard file is needed.
+   Unapproved accounts remain in the portal request-access flow.
+4. Use Disconnect in the extension when finished. Sessions expire after eight hours;
+   portal logout alone does not disconnect an approved extension.
 
-The popup may close while the portal opens. Reopening it polls immediately; a
-background alarm also checks pending approval every 30 seconds. Authentication
-expires after eight hours. The portal lists the user's extension connections and
-can revoke them. Portal logout does not disconnect an approved extension.
+A portal-only isolated content script obtains the pending PKCE proof exclusively
+from the background controller in the exact top-level tab opened by this extension.
+It completes the same-origin authenticated approval, then tells the background to
+exchange the one-use grant and apply proxy settings. The page never receives the
+verifier through its DOM, URL or page messages. Other tabs, frames, sites and
+external senders cannot obtain the proof. Membership, consent and gateway checks
+remain enforced. The older explicit pairing endpoints remain for compatibility.
 
 ## Browser coverage and distribution
 
@@ -83,7 +87,7 @@ submission. This work does not create publisher accounts or accept store terms.
 
 - Pairing requests expire after ten minutes. The extension holds a random device
   code and PKCE verifier; only a matching verifier can exchange an approved code.
-  Approval is explicit, after verified login, membership and current consent.
+  The new sign-in flow completes automatically only with the local verifier, verified login, membership and current consent; the older code approval flow remains compatible.
   Anonymous starts are rate-limited and pending records bounded. Polling is a
   read until an atomic single-use exchange creates the session.
 - Proxy credentials are random, per connection and eight-hour limited. Only
@@ -134,3 +138,13 @@ been established by these tests.
 Implementation references checked 2026-10-24: Chrome `proxy` and `webRequest`
 API docs; Mozilla `proxy.onRequest`, `webRequest.onAuthRequired`, `background`,
 and `privacy.network` docs. Browser-specific manifest/signing policies may change.
+
+## Website installation entry point
+
+The portal can provide the installation page and links. Chrome on ordinary Windows
+and macOS installations requires Chrome Web Store distribution (enterprise policies
+are a separate managed-device path). Firefox can install a Mozilla-signed unlisted
+XPI hosted on this website. Edge can use Edge Add-ons distribution. Do not present
+manual preview ZIPs as a normal colleague installation experience. Installation
+always uses the browser's confirmation. No signed package or store listing has
+been published by this implementation.

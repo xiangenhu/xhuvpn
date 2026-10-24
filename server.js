@@ -317,6 +317,7 @@ app.post('/api/extension/disconnect',route(async(req,res)=>res.json(await extens
 app.post('/api/extension/verify',extensionAccess.gateway,route(async(req,res)=>res.json(await extensionAccess.verify(req.body.id,req.body.password))));
 app.get('/api/extension/pair/info',auth,requireConsent,route(async(req,res)=>res.json(await extensionAccess.info(req.query.code))));
 app.post('/api/extension/pair/approve',auth,requireConsent,route(async(req,res)=>res.json(await extensionAccess.approve(req.body.code,req.user.email))));
+app.post('/api/extension/pair/complete',auth,requireConsent,route(async(req,res)=>res.json(await extensionAccess.completeSignIn(req.body.deviceCode,req.body.verifier,req.user.email))));
 app.get('/api/extension/sessions',auth,route(async(req,res)=>res.json(await extensionAccess.list(req.user.email))));
 app.post('/api/extension/sessions/revoke',auth,route(async(req,res)=>res.json(await extensionAccess.revoke(req.body.id,null,req.user.email))));
 app.post('/api/browser/start',auth,requireConsent,route(async(req,res)=>res.json(await remoteBrowser.start(req.user.email))));
