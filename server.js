@@ -330,10 +330,14 @@ app.post('/api/access/redeem',auth,route(async(req,res)=>{
 app.post('/api/access/request',auth,route(async(req,res)=>{
   const request=await access.requestApproval(req.user);
   if(request.alreadyRequested) return res.json({requested:true,emailStatus:'already-requested'});
-  let emailStatus='sent';
+  let delivery={emailStatus:'sent'};
   try {await require('./lib/smtp').sendApprovalRequest(request);}
-  catch {emailStatus='unconfirmed';}
-  res.json({requested:true,emailStatus});
+  catch(error) {delivery=require('./lib/smtp').deliveryFailure(error);}
+  await stateStore.update(state=>{
+    const saved=state.requests?.[request.email];
+    if(saved?.requestedAt===request.requestedAt) Object.assign(saved,delivery);
+  });
+  res.json({requested:true,...delivery});
 }));
 
 app.get('/api/admin/users', auth, adminOnly, route(async (req,res)=>res.json(await access.summary())));
@@ -341,7 +345,11 @@ app.post('/api/admin/invitations', auth, adminOnly, route(async (req,res)=>{
   const invitation=await access.invite(req.body.email);
   if(req.body.sendEmail!==false) {
     try {await require('./lib/smtp').sendInvitation(invitation);invitation.emailStatus='sent';}
-    catch {invitation.emailStatus='unconfirmed';}
+    catch(error) {Object.assign(invitation,require('./lib/smtp').deliveryFailure(error));}
+    await stateStore.update(state=>{
+      const hash=crypto.createHash('sha256').update(invitation.code).digest('hex');
+      if(state.invites[hash]) Object.assign(state.invites[hash],{emailStatus:invitation.emailStatus,emailCode:invitation.emailCode || null,emailError:invitation.emailError || null,emailAttemptedAt:new Date().toISOString()});
+    });
   }
   res.status(201).json(invitation);
 }));

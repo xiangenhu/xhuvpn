@@ -746,7 +746,7 @@
       if(!(data.requests || []).length){const empty=document.createElement('p');empty.textContent='All caught up. New access requests will appear here.';requests.append(empty);}
       for(const request of data.requests || []) {
         const row=document.createElement('div');row.className='peer-row';
-        const label=document.createElement('span');label.textContent=request.email+' · Requests access';row.append(label);
+        const label=document.createElement('span');label.textContent=request.email+' · Requests access'+(request.emailStatus==='unconfirmed'?' · Admin notification unconfirmed: '+(request.emailError || 'Check gateway records'):'');row.append(label);
         const approve=document.createElement('button');approve.className='btn-primary';approve.textContent='Prepare invitation';
         approve.addEventListener('click',()=>{
           document.getElementById('invite-email').value=request.email;
@@ -759,7 +759,7 @@
       const rows=[...data.users.map(u=>({...u,label:u.enabled?'Active':'Disabled'})),...data.invitations.filter(i=>!data.users.some(u=>u.email===i.email)).map(i=>({...i,label:'Invitation pending',enabled:true}))];
       for(const user of rows) {
         const row=document.createElement('div');row.className='peer-row';
-        const label=document.createElement('span');label.textContent=user.email+' · '+user.label+(user.deviceCount===undefined?'':' · '+user.deviceCount+' devices');row.append(label);
+        const label=document.createElement('span');label.textContent=user.email+' · '+user.label+(user.emailStatus ? ' · Email '+(user.emailStatus==='sent'?'accepted by mail service':'unconfirmed: '+(user.emailError || 'Check gateway records')):'')+(user.deviceCount===undefined?'':' · '+user.deviceCount+' devices');row.append(label);
         if(user.enabled || user.label==='Disabled') {
           const button=document.createElement('button');button.className='btn-danger';button.textContent=user.enabled?'Disable':'Retry connection cleanup';
           button.addEventListener('click',async()=>{
@@ -780,7 +780,7 @@
     try {
       const data=await jsonRequest('/api/admin/invitations',{email:document.getElementById('invite-email').value,sendEmail:document.getElementById('email-invite').checked});
       document.getElementById('invite-result').textContent='Single-use invitation for '+data.email+'. Expires '+new Date(data.expires).toLocaleString()+'. Share privately; generating another invalidates the previous code.';
-      if(data.emailStatus) document.getElementById('invite-result').textContent+=data.emailStatus==='sent'?' Email accepted by the mail service.':' Email delivery could not be confirmed. Copy the invitation below; no automatic resend was attempted.';
+      if(data.emailStatus) document.getElementById('invite-result').textContent+=data.emailStatus==='sent'?' Email accepted by the mail service.':' Email delivery could not be confirmed. '+(data.emailError || '')+' Copy the invitation below; no automatic resend was attempted.';
       const field=document.getElementById('invite-share');field.value=data.url+'\nCode: '+data.code;field.hidden=false;document.getElementById('copy-invite').hidden=false;loadMembers();
     }catch(e){document.getElementById('invite-result').textContent=e.message;}finally{button.disabled=false;}
   });

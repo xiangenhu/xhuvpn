@@ -22,3 +22,15 @@ test('approval email goes only to administrator and keeps stable retry identity'
  assert.equal(calls[0].to,'xiangenhu@gmail.com');assert.equal(calls[0].requestId,calls[1].requestId);
  assert.match(calls[0].body,/new@example.com/);
 });
+test('SMTP failures expose only controlled diagnostics and never retry',async()=>{
+ const {deliveryFailure}=require('../lib/smtp');
+ const invitation={email:'friend@example.com',code:'code',url:'https://vpn.example',expires:'tomorrow'};
+ for(const [status,code,expected] of [[403,'service_scope','service_scope'],[503,'smtp_setup','smtp_setup'],[429,'smtp_limit','smtp_limit'],[401,'invalid_client','smtp_auth'],[502,'email_uncertain','email_uncertain']]) {
+  let calls=0;
+  await assert.rejects(sendInvitation(invitation,{env:{PROXY_CLIENT_ID:'test',PROXY_CLIENT_SECRET:'secret'},fetchImpl:async()=>{calls++;return {ok:false,status,json:async()=>({code,message:'PRIVATE RESPONSE'})};}}),error=>{
+   const safe=deliveryFailure(error);assert.equal(safe.emailCode,expected);assert.ok(!safe.emailError.includes('PRIVATE RESPONSE'));return true;
+  });
+  assert.equal(calls,1);
+ }
+ await assert.rejects(sendInvitation(invitation,{env:{}}),{code:'smtp_credentials'});
+});
