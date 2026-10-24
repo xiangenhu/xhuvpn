@@ -10,6 +10,8 @@ test('SMTP uses server client authentication and stable request IDs; uncertain f
  const message=JSON.parse(requests[0].options.body);
  assert.equal(message.to,invitation.email);assert.match(message.subject,/connection instructions/);
  for(const text of [invitation.code,invitation.url,invitation.expires,'Prepare my configuration file','.conf','Import tunnel(s) from file','Activate','xiangenhu@gmail.com'])assert.ok(message.body.includes(text),text);
+ assert.ok(message.body.includes('https://www.wireguard.com/install/'));assert.ok(message.body.includes('Ctrl+J'));
+ assert.ok(!message.body.includes('Browser extension'));assert.ok(!message.body.includes('Choose WireGuard configuration file'));
  let count=0;await assert.rejects(sendInvitation(invitation,{env,fetchImpl:async()=>{count++;throw Error('timeout');}}));assert.equal(count,1);
  await assert.rejects(sendInvitation(invitation,{env,fetchImpl:async()=>({ok:true,json:async()=>({success:false})})}));
 });

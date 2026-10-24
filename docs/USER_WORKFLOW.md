@@ -1,70 +1,38 @@
-# Colleague setup workflow review
+# Current user workflow: WireGuard only
 
-Reviewed 24 October 2026. Audience: approved colleagues with no technical background.
-This is a review of the implemented interface and automated behavior, not a completed
-usability study or proof that the production VPN is working.
+Updated 24 October 2026 following the owner's successful WireGuard test.
 
-## Intended journey
+1. Sign in with Google or a verified SKO email account.
+2. See VPN access granted or not yet granted. A not-granted user requests a code
+   from xiangenhu@gmail.com, then enters the emailed code to continue.
+3. Accept the research-use agreement if shown.
+4. Open WireGuard. Use the official installation link if needed.
+5. Return to the website and choose WireGuard is open — continue, then Prepare my
+   configuration file. No connection-method selection or naming is required.
+6. Download the .conf file, import it into WireGuard and choose Activate.
+7. For later use, activate the saved connection in WireGuard. To stop, choose
+   Deactivate. Website sign-out does not stop WireGuard.
 
-1. Sign in with an existing verified account. A new colleague requests access;
-   approval remains a one-time administrator responsibility.
-2. Accept the research-use agreement. Open My VPN, which is also the owner's
-   default view. Administration is a separate owner-only section.
-3. Open WireGuard. If already installed, use “WireGuard is open — continue”.
-   Otherwise follow the official installation link and return to this page.
-4. Keep the suggested device name and choose “Prepare my configuration file”.
-   Device type and name changes are optional, under an expandable section.
-5. On success, the page shows the exact filename and an explicit download button.
-   Save that file, import it into WireGuard and activate the connection. Desktop
-   setup stays inline rather than opening an additional success window. Mobile
-   setup also offers the QR/import window.
-6. Check for a server handshake. This does not certify that browsing works;
-   confirm by opening a website on the connected device.
-7. On later visits, use My saved configurations to download an existing file.
-   Reconnecting in WireGuard does not require creating another registration.
+Administrator approval emails are sent by default and contain the approved email,
+access code, expiry, sign-in link, installer link, file download/import/activation
+instructions, missing-download help, privacy guidance and the support address.
+The administrator can explicitly opt out of sending. Mail-service acceptance is
+reported separately from an unconfirmed send; actual inbox delivery is not proven
+by automated tests.
 
-## Review findings and changes
+The user-facing browser extension and remote-browser flows are removed. The former
+extension download page explains the change and links back to WireGuard setup.
+Technical connection records remain in Administration. Personal saved-file history
+contains configuration download/help rather than device-management controls.
 
-| Finding | Resulting interface behavior |
-| --- | --- |
-| Owner setup and administration mixed together | Separate My VPN and Administration; personal list contains only the signed-in account's devices |
-| Unavailable services presented as recommended | Remote browser is removed from the selector. Browser extension and WireGuard are selectable; extension setup stays accessible while an unconfigured proxy is reported as unavailable |
-| Extension installation needs developer mode or temporary add-ons | Clearly labeled testing preview, intended for assisted testing, not advertised as a simple colleague installation |
-| Device naming looks like a prerequisite | Suggested name retained; optional edits collapsed |
-| Installing WireGuard mistaken for obtaining its profile | Explicitly explain that this website creates the configuration file |
-| Download assumed rather than observed | Explicit filename and download link; no claim that an automatic download succeeded |
-| Modal adds another place to look | Desktop creation shows the download and import instructions inline; saved-profile help can still open a window |
-| Users lose their next step | Persistent numbered instructions and “cannot find file” help |
-| Generic errors leave users clicking repeatedly | Explain when a file is not ready, preserve the error and provide contact/help; check saved registrations before retrying |
-| Server health mistaken for a personal connection | Header says server availability; per-device check reports handshake separately |
-| Duplicate installer cards dominate the page | Additional platform downloads are expandable |
+## Acceptance checks
 
-## Release blockers and acceptance checks
-
-- Production profile creation has failed in the user's screenshots. The failure
-  reason must be reproduced and resolved; UI changes do not resolve this blocker.
-- The extension still requires deployed HTTPS proxy infrastructure, live browser
-  testing and signed/store distribution before it is suitable for unassisted use.
-- Verify a first-time colleague can sign in, obtain the actual conf attachment,
-  locate it in Downloads, import it and browse after activation on Windows and Mac.
-  Also verify mobile file import and QR scanning on another screen.
-- Verify returning users can find a saved file without creating duplicates.
-- Exercise a slow response, server failure, account revocation, unavailable browser
-  service and lost download. Each must show a clear current state and next action.
-- Observe a nontechnical colleague completing the process without coaching. Record
-  where they hesitate. Automated tests cannot establish ease of use.
-
-## Account and connection choices update
-
-Any explicitly verified Google or SKO email identity can sign in to see its VPN
-access status. A not-granted account can request a code from xiangenhu@gmail.com
-and redeem the email-bound code without signing out. Approved accounts receive
-connection instructions after accepting the research-use agreement. Revoked
-accounts can view status and request reapproval, but cannot use VPN resources.
-Only a fresh explicit administrator-issued code can restore their access.
-
-The connection selector now offers Browser extension and WireGuard configuration
-file only. Extension setup is selectable even before proxy configuration; this
-does not bypass backend health checks or imply that traffic is connected. Remote
-browser is not a user choice. Signed distribution and live HTTPS proxy activation
-remain prerequisites for a simple working extension experience.
+- An unapproved account can request a code but cannot download VPN credentials.
+- A granted account reaches WireGuard setup without a connection selector.
+- The approval email contains complete WireGuard steps and no extension prompts.
+- The named .conf attachment can be downloaded and imported, and browsing works
+  after activation. The owner has reported WireGuard working; automated tests
+  cannot establish all colleagues' operating systems or actual email delivery.
+- A returning user can retrieve a saved file without creating another registration.
+- Errors stay visible and do not pretend a file exists or a connection is active.
+- Observe a nontechnical colleague completing setup without coaching.

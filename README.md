@@ -1,3 +1,5 @@
+> **Current connection method:** WireGuard only. Verified email sign-in determines VPN access; approved users download a private configuration and import it into WireGuard. Approval emails include detailed setup instructions. Browser extension and remote-browser choices have been removed from the user interface. Earlier extension documentation is retained as implementation history.
+
 # WireGuard VPN Manager — Cloud Run Edition
 ### Node.js · Cloud Run · Google Cloud Storage · GCE VM (WireGuard)
 

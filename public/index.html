@@ -202,7 +202,6 @@
     <p class="welcome-intro">Welcome, colleagues and collaborators. Access the resources you need for your research, with a guided setup and a connection that fits the way you work.</p>
     <p class="welcome-author">Created by Xiangen Hu, for our research community.</p>
     <div class="connection-cards">
-      <article class="connection-card"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="5" width="26" height="22" rx="4"/><path d="M3 12h26M8 8.5h1m3 0h1M12 17l-3 3 3 3m8-6 3 3-3 3"/></svg><h2>Just your browser</h2><p>Install the Research Network extension once. Sign in, approve this browser, and connect with one switch.</p><small>Desktop Chrome, Edge, Brave, Opera and Firefox · available after proxy setup</small></article>
       <article class="connection-card"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="5" width="20" height="16" rx="3"/><path d="M8 27h10m-5-6v6"/><rect x="21" y="14" width="8" height="14" rx="2"/></svg><h2>Use WireGuard</h2><p>Install WireGuard once. We guide you through importing your personal connection profile.</p><small>Use WireGuard’s switch to connect</small></article>
     </div>
   </section>
@@ -271,40 +270,12 @@
     <button type="button" id="management-workspace-button" class="btn-muted" aria-pressed="false" aria-controls="management-workspace" onclick="selectWorkspace('management')" hidden>Administration</button>
   </nav>
   <section id="personal-workspace" aria-labelledby="personal-title">
-  <div class="workspace-intro"><h2 id="personal-title">My VPN</h2><p>Sign in with your approved email account to use the VPN. Choose how you want to connect below.</p><p id="personal-identity"></p></div>
+  <div class="workspace-intro"><h2 id="personal-title">My VPN</h2><p>Sign in with your approved email account, download your WireGuard configuration, and connect.</p><p id="personal-identity"></p></div>
   <section class="section">
     <h2>Start here</h2>
-    <p>Use the browser extension to sign in and connect, or use a WireGuard configuration file. No additional access approval is needed.</p>
-    <label for="connection-mode">Connection mode</label>
-    <select id="connection-mode"><option value="extension">Browser extension</option><option value="wireguard">WireGuard configuration file</option></select>
-    <p>The extension preview currently requires manual installation. Changing this choice does not disconnect WireGuard.</p>
+    <p>Open WireGuard, download your configuration file below, then import it and click Activate. You only need to import the file once.</p>
     <p class="research-reminder">Created by Xiangen Hu for colleagues and research teams. Research use only. Do not distribute access without permission. You are responsible for your internet activity and improper use.</p>
   </section>
-  <section id="extension-panel" class="section">
-    <h2>A connection for your browser</h2>
-    <p>Install once, then use Connect / Disconnect in the extension. No WireGuard app or configuration file is needed for this mode. Regular web tabs in this browser use the research proxy; other apps and private windows do not.</p>
-    <p id="extension-install"><a class="btn-primary" href="/extension-setup.html" target="_blank" rel="noopener">Get the browser extension</a></p>
-    <p id="extension-status" role="status"></p>
-    <div id="extension-approval" hidden>
-      <h3>Approve this browser</h3><p id="extension-request"></p>
-      <p>Check that this code matches the code in your extension. Approve only a connection you just started yourself.</p>
-      <p id="extension-code" style="font-family:var(--mono);font-size:1.4rem;color:var(--accent)"></p>
-      <button class="btn-primary" id="extension-approve">Approve this browser</button>
-      <p id="extension-approval-status" role="status"></p>
-    </div>
-    <h3>My extension connections</h3><div id="extension-sessions"></div>
-    <p>Connections expire after eight hours. Revoke a lost browser here. Signing out of this portal does not disconnect an already approved extension; use its Disconnect switch.</p>
-  </section>
-  <section id="browser-panel" class="section" hidden>
-    <h2>Research browser</h2>
-    <p>Only websites opened inside this remote browser use its server connection. Your ordinary tabs and other apps are unaffected. End the session when finished.</p>
-    <p>Sign in once to open your research browser automatically. Return with a valid login to reopen it. Turn off &amp; sign out when finished; next time you will need to sign in again.</p>
-    <button class="btn-primary" id="browser-start">Turn on / reopen browser</button>
-    <button class="btn-muted" id="browser-stop">Turn off &amp; sign out</button>
-    <p id="browser-status" role="status"></p>
-    <iframe id="research-browser" title="Private research browser" referrerpolicy="no-referrer" allow="fullscreen; clipboard-read; clipboard-write" style="width:100%;height:75vh;border:0" hidden></iframe>
-  </section>
-
   <div id="wireguard-panel"><div class="section">
     <h2>Connect with WireGuard</h2>
     <h3>1. Open WireGuard</h3>
@@ -438,10 +409,6 @@
 </div>
 
 <script>
-  const extensionCode=new URLSearchParams(location.hash.slice(1)).get('extension');
-  if(extensionCode && /^[A-F0-9]{4}(-[A-F0-9]{4}){2}$/.test(extensionCode)) {
-    sessionStorage.setItem('vpn_extension_code',extensionCode);history.replaceState({},'',location.pathname);
-  }
   let currentUser = null;
   let isAdmin = false;
   function selectWorkspace(workspace) {
@@ -457,22 +424,7 @@
   let currentConfig = '';
   let currentPeerName = '';
   let inlinePeerName = '';
-  let noticeVersion='';let browserPoll=0;let browserAvailable=false;
-  const mode=document.getElementById('connection-mode');
-  function chooseMode(save=true) {
-    document.getElementById('wireguard-panel').hidden=mode.value!=='wireguard';
-    document.getElementById('browser-panel').hidden=true;
-    document.getElementById('extension-panel').hidden=mode.value!=='extension';
-    if(save)localStorage.setItem('vpn_connection_mode',mode.value);
-  }
-  mode.value='extension';
-  mode.addEventListener('change',chooseMode);chooseMode(false);
-  function configureConnectionModes(data) {
-    const desired=(sessionStorage.getItem('vpn_extension_code') || new URLSearchParams(location.search).get('extension')==='connect')?'extension':localStorage.getItem('vpn_connection_mode');
-    mode.value=['extension','wireguard'].includes(desired)?desired:'extension';
-    document.getElementById('extension-install').hidden=false;
-    chooseMode();
-  }
+  let noticeVersion='';
   document.getElementById('wireguard-installed').addEventListener('click',()=>{
     document.getElementById('profile-create-step').hidden=false;
     document.getElementById('prepare-profile-title').focus();
@@ -482,34 +434,6 @@
     try {await jsonRequest('/api/consent',{version:noticeVersion,accept:true});await enterApp();}
     catch(e){document.getElementById('consent-status').textContent=e.message;}
   });
-  async function openResearchBrowser() {
-    const button=document.getElementById('browser-start');
-    if(button.disabled)return;
-    button.disabled=true;const poll=++browserPoll;
-    const message=document.getElementById('browser-status');
-    try {
-      let result=await jsonRequest('/api/browser/status',{});
-      if(result.status==='none') {await jsonRequest('/api/browser/start',{});result={status:'starting'};}
-      for(let attempt=0;attempt<30 && poll===browserPoll;attempt++) {
-        if(result.status==='running') {
-          const frame=document.getElementById('research-browser');frame.src=result.url;frame.hidden=false;
-          message.textContent='Browser on — only websites inside this research browser use its connection.';return;
-        }
-        if(result.status!=='starting') {message.textContent=result.message || 'Session is ending. Try again shortly.';return;}
-        message.textContent='Starting your private browser…';
-        await new Promise(resolve=>setTimeout(resolve,2000));
-        if(poll!==browserPoll)return;
-        result=await jsonRequest('/api/browser/status',{});
-      }
-      message.textContent='Still starting. Choose Start / open browser again to check; a second session will not be created.';
-    }catch(e){message.textContent=e.message;}finally{button.disabled=false;}
-  }
-  document.getElementById('browser-start').addEventListener('click',openResearchBrowser);
-  document.getElementById('browser-stop').addEventListener('click',()=>logout(true));
-  async function stopResearchBrowser() {
-    ++browserPoll;const frame=document.getElementById('research-browser');frame.src='about:blank';frame.hidden=true;
-    await jsonRequest('/api/browser/stop',{});
-  }
   const devicePlatform=document.getElementById('device-platform');
   const ua=navigator.userAgent;
   devicePlatform.value=/Android|iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints>1) ? 'mobile' : /Mac/i.test(ua) ? 'mac' : /Linux/i.test(ua) ? 'linux' : 'windows';
@@ -539,7 +463,6 @@
       isAdmin = data.authType === 'admin';
       document.getElementById('auth-section').style.display = 'none';
       if(data.authType==='pending') {
-        browserAvailable=false;
         document.getElementById('consent-section').hidden=true;
         document.getElementById('app').style.display='none';
         document.getElementById('approval-section').hidden=false;
@@ -556,14 +479,6 @@
       document.getElementById('research-notice').textContent=data.notice;
       document.getElementById('consent-section').hidden=data.accepted;
       if(!data.accepted){document.getElementById('app').style.display='none';return;}
-      document.getElementById('browser-start').disabled=!data.browserEnabled;
-      browserAvailable=false;
-      configureConnectionModes(data);
-      document.getElementById('browser-stop').disabled=!data.browserEnabled;
-      if(!data.browserEnabled) document.getElementById('browser-status').textContent='The optional remote-browser server is not configured. Use the extension or WireGuard instead.';
-      document.getElementById('extension-status').textContent=data.extensionEnabled?'Testing preview: ask Xiangen to help install the extension. After installation, click Sign in & connect. An approved account connects automatically.':'Browser connections are not available yet. Please use the WireGuard setup steps.';
-      void loadExtensionConnections();
-      if(sessionStorage.getItem('vpn_extension_code'))void loadExtensionApproval();
       document.getElementById('app').style.display = 'block';
       document.getElementById('admin-status').style.display = isAdmin ? 'block' : 'none';
       document.getElementById('admin-members').hidden = !isAdmin;
@@ -573,14 +488,12 @@
       loadAll();
     } catch { showMsg('login-msg','err','Unable to contact the server. Please retry.'); }
   }
-  async function logout(stopBrowser=false) {
+  async function logout() {
     try {
-      // Do not silently sign out when shutdown failed: retain access to retry cleanup.
-      if(stopBrowser || browserAvailable) await stopResearchBrowser();
       const res = await apiFetch('/api/auth/logout',{method:'POST'});
       if (!res.ok) throw Error('Logout failed');
       window.location.reload();
-    } catch { alert('Could not complete browser shutdown and sign-out. Please retry; your server session may still be running.'); }
+    } catch { alert('Could not sign out. Please try again. WireGuard stays on until you switch it off in the WireGuard app.'); }
   }
   document.getElementById('request-approval').addEventListener('click',async event=>{
     const button=event.currentTarget;button.disabled=true;
@@ -792,42 +705,6 @@
   }
 
   // ── Helpers ────────────────────────────────────────────────────────
-
-  async function loadExtensionConnections() {
-    const list=document.getElementById('extension-sessions');
-    try {
-      const sessions=await jsonRequest('/api/extension/sessions');list.replaceChildren();
-      if(!sessions.length){list.textContent='No active extension connections.';return;}
-      for(const session of sessions) {
-        const row=document.createElement('div');row.className='peer-row';
-        const label=document.createElement('span');label.textContent=session.label+' · expires '+new Date(session.expires).toLocaleString();
-        const button=document.createElement('button');button.className='btn-muted';button.textContent='Revoke';
-        button.addEventListener('click',async()=>{button.disabled=true;try {await jsonRequest('/api/extension/sessions/revoke',{id:session.id});await loadExtensionConnections();}catch {button.disabled=false;document.getElementById('extension-status').textContent='Could not revoke this connection. Please retry.';}});
-        row.append(label,button);list.append(row);
-      }
-    }catch {list.textContent='Extension connection status is unavailable. Refresh to retry.';}
-  }
-  async function loadExtensionApproval() {
-    const code=sessionStorage.getItem('vpn_extension_code');
-    const panel=document.getElementById('extension-approval');panel.hidden=false;
-    const button=document.getElementById('extension-approve');button.disabled=true;
-    try {
-      const info=await jsonRequest('/api/extension/pair/info?code='+encodeURIComponent(code));
-      document.getElementById('extension-request').textContent=info.label+' is asking to connect to your research network.';
-      document.getElementById('extension-code').textContent=info.code;
-      button.disabled=info.approved;
-      document.getElementById('extension-approval-status').textContent=info.approved?'Already approved. Reopen the extension to finish connecting.':'';
-    }catch(e){document.getElementById('extension-approval-status').textContent=e.message;}
-  }
-  document.getElementById('extension-approve').addEventListener('click',async()=>{
-    const button=document.getElementById('extension-approve');button.disabled=true;
-    try {
-      await jsonRequest('/api/extension/pair/approve',{code:sessionStorage.getItem('vpn_extension_code')});
-      sessionStorage.removeItem('vpn_extension_code');
-      document.getElementById('extension-approval-status').textContent='Approved. Open the extension to finish connecting. You can close this tab.';
-      void loadExtensionConnections();
-    }catch(e){document.getElementById('extension-approval-status').textContent=e.message;button.disabled=false;}
-  });
 
   function showMsg(id, type, text) {
     document.getElementById(id).textContent = text;
