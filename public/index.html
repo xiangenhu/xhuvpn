@@ -266,6 +266,14 @@
       #profile-steps li{margin:8px 0}
       body>footer{padding:16px 0!important}
     }
+    .traffic-table-wrap{overflow-x:auto;border:1px solid #34495e;border-radius:12px;margin:12px 0 22px}
+    .traffic-table{width:100%;border-collapse:collapse;font-size:13px;text-align:left}
+    .traffic-table th{background:#1b3042;color:#bcebdc;font-size:12px;white-space:nowrap}
+    .traffic-table td,.traffic-table th{padding:12px 14px;border-bottom:1px solid #304357}
+    .traffic-table td{font-variant-numeric:tabular-nums}
+    .traffic-table tbody tr:nth-child(even){background:#0e1c2b}
+    .traffic-table tbody tr:hover{background:#1a3341}
+    @media(max-width:600px){.workspace-nav{grid-template-columns:1fr 1fr}.workspace-nav button:first-child{grid-column:1 / -1}.traffic-table td,.traffic-table th{padding:10px}}
   </style>
 </head>
 <body>
@@ -362,6 +370,7 @@
   </header>
   <nav class="workspace-nav" aria-label="Workspace">
     <button type="button" id="personal-workspace-button" class="btn-primary" aria-pressed="true" aria-controls="personal-workspace" onclick="selectWorkspace('personal')">科学上网：Hu Lab exclusive network</button>
+    <button type="button" id="traffic-workspace-button" class="btn-muted" aria-pressed="false" aria-controls="traffic-section" onclick="selectWorkspace('traffic')" hidden>Traffic Analysis</button>
     <button type="button" id="management-workspace-button" class="btn-muted" aria-pressed="false" aria-controls="management-workspace" onclick="selectWorkspace('management')" hidden>Administration</button>
   </nav>
   <section id="personal-workspace" aria-labelledby="personal-title">
@@ -455,17 +464,6 @@
     <p id="import-status" role="status">Use once to preserve devices previously added manually. Their existing files keep working.</p></details>
   </div>
 
-  <section class="section" id="traffic-section" hidden>
-    <h2>Traffic analysis · Admin only</h2>
-    <button class="btn-muted" id="traffic-refresh" onclick="loadTraffic()">Refresh traffic</button>
-    <p id="traffic-status" role="status"></p>
-    <div id="traffic-totals" class="card"></div>
-    <h3>Members and devices</h3><div id="traffic-members"></div>
-    <label for="traffic-period">Usage history (UTC)</label>
-    <select id="traffic-period" onchange="renderTrafficHistory()"><option value="daily">Daily</option><option value="monthly">Monthly</option></select>
-    <div id="traffic-history"></div>
-    <p>Upload and download are from the member’s perspective. Totals start at the first recorded baseline. Recently active means a handshake within 3 minutes. Collection runs on refresh and every minute while this admin page is open. Continuous history requires a separately configured collector. Intervals are assigned to the collection date. Traffic between a counter reset and the preceding sample may be lost. No browsing content is collected.</p>
-  </section>
   <section class="section" id="admin-members" hidden>
     <h2>Friends and invitations</h2>
     <p>Welcome colleagues to your private research network. Only you can invite or disable members.</p>
@@ -485,6 +483,17 @@
     <details><summary>Connection maintenance</summary><p>If a device change did not reach the VPN server, retry synchronization.</p><button class="btn-muted" id="retry-sync">Retry VPN synchronization</button></details>
   </section>
     <section class="section"><h2>All VPN devices</h2><p>Includes your devices and members’ devices. Each row shows its owner. Revoking a device removes its server access.</p><div id="admin-peers-list">Loading devices…</div><p id="admin-connection-result" role="status"></p></section>
+  </section>
+  <section class="section" id="traffic-section" hidden>
+    <h2>Traffic analysis · Admin only</h2>
+    <button class="btn-muted" id="traffic-refresh" onclick="loadTraffic()">Refresh traffic</button>
+    <p id="traffic-status" role="status"></p>
+    <div id="traffic-totals" class="card"></div>
+    <h3>Member usage</h3><div id="traffic-members"></div><h3>Device details</h3><div id="traffic-devices"></div>
+    <label for="traffic-period">Usage history (UTC)</label>
+    <select id="traffic-period" onchange="renderTrafficHistory()"><option value="daily">Daily</option><option value="monthly">Monthly</option></select>
+    <div id="traffic-history"></div>
+    <p>Upload and download are from the member’s perspective. Totals start at the first recorded baseline. Recently active means a handshake within 3 minutes. Collection runs on refresh and every minute while this admin page is open. Continuous history requires a separately configured collector. Intervals are assigned to the collection date. Traffic between a counter reset and the preceding sample may be lost. No browsing content is collected.</p>
   </section>
 
 </div>
@@ -518,15 +527,16 @@
   let currentUser = null;
   let isAdmin = false;
   function selectWorkspace(workspace) {
-    const management=workspace==='management' && isAdmin;
-    document.getElementById('personal-workspace').hidden=management;
-    document.getElementById('management-workspace').hidden=!management;
-    document.getElementById('management-workspace-button').hidden=!isAdmin;
-    for(const [id,selected] of [['personal-workspace-button',!management],['management-workspace-button',management]]) {
-      const button=document.getElementById(id);button.setAttribute('aria-pressed',String(selected));
-      button.className=selected?'btn-primary':'btn-muted';
+    const selected=isAdmin && ['management','traffic'].includes(workspace)?workspace:'personal';
+    for(const [name,panel] of [['personal','personal-workspace'],['management','management-workspace'],['traffic','traffic-section']]){
+      document.getElementById(panel).hidden=selected!==name;
+      const button=document.getElementById(name==='traffic'?'traffic-workspace-button':name+'-workspace-button');
+      button.hidden=name!=='personal' && !isAdmin;
+      button.setAttribute('aria-pressed',String(selected===name));
+      button.className=selected===name?'btn-primary':'btn-muted';
     }
   }
+
   let currentConfig = '';
   let currentPeerName = '';
   let inlinePeerName = '';
@@ -588,7 +598,7 @@
       document.getElementById('app').style.display = 'block';
       document.getElementById('admin-status').style.display = isAdmin ? 'block' : 'none';
       document.getElementById('admin-members').hidden = !isAdmin;
-      document.getElementById('traffic-section').hidden = !isAdmin;
+
       document.getElementById('personal-identity').textContent='VPN access granted · '+currentUser.email;
       selectWorkspace('personal');
       document.getElementById('user-info').textContent = (isAdmin?'Administrator · ':'Member · ') + currentUser.email;
@@ -679,7 +689,17 @@
 
   let trafficData=null;
   function trafficBytes(n){const units=['B','KiB','MiB','GiB','TiB'];let i=0;while(n>=1024&&i<4){n/=1024;i++;}return n.toFixed(i?2:0)+' '+units[i];}
-  function trafficRow(target,text){const row=document.createElement('div');row.className='card';row.textContent=text;target.appendChild(row);}
+  function trafficTable(id,headers,rows){
+    const target=document.getElementById(id);target.replaceChildren();
+    const wrap=document.createElement('div');wrap.className='traffic-table-wrap';
+    const table=document.createElement('table');table.className='traffic-table';
+    const head=table.createTHead().insertRow();
+    for(const label of headers){const th=document.createElement('th');th.scope='col';th.textContent=label;head.appendChild(th);}
+    const body=table.createTBody();
+    for(const values of rows){const row=body.insertRow();for(const value of values){row.insertCell().textContent=value;}}
+    if(!rows.length){const cell=body.insertRow().insertCell();cell.colSpan=headers.length;cell.textContent='No recorded usage yet.';}
+    wrap.appendChild(table);target.appendChild(wrap);
+  }
   async function loadTraffic(){
     if(!isAdmin)return;
     const button=document.getElementById('traffic-refresh');if(button.disabled)return;button.disabled=true;
@@ -689,22 +709,18 @@
       if(!r.ok)throw Error('Unable to collect statistics. Retry when the VPN server is reachable.');
       trafficData=await r.json();const d=trafficData;
       document.getElementById('traffic-totals').textContent='Upload '+trafficBytes(d.upload)+' · Download '+trafficBytes(d.download)+' · Recently active devices '+d.activeDevices;
-      const members=document.getElementById('traffic-members');members.replaceChildren();
-      for(const m of d.members){trafficRow(members,m.owner+' · ↑ '+trafficBytes(m.upload)+' · ↓ '+trafficBytes(m.download));
-        for(const p of m.devices)trafficRow(members,p.name+' · ↑ '+trafficBytes(p.upload)+' · ↓ '+trafficBytes(p.download)+' · '+(p.active?'Recently active':p.handshake?'Last handshake '+new Date(p.handshake*1000).toLocaleString():'No handshake'));
-      }
+      trafficTable('traffic-members',['Member','Devices','Active','Upload','Download','Total'],d.members.map(m=>[m.owner,m.devices.length,m.activeDevices,trafficBytes(m.upload),trafficBytes(m.download),trafficBytes(m.upload+m.download)]));
+      trafficTable('traffic-devices',['Device','Member','Status','Upload','Download','Last handshake'],d.members.flatMap(m=>m.devices.map(p=>[p.name,m.owner,p.active?'Recently active':'Inactive',trafficBytes(p.upload),trafficBytes(p.download),p.handshake?new Date(p.handshake*1000).toLocaleString():'Never'])));
       status.textContent='Updated '+new Date(d.lastAt).toLocaleString()+' · Tracking since '+new Date(d.startedAt).toLocaleString();renderTrafficHistory();
     }catch(e){status.textContent=e.message;}finally{button.disabled=false;}
   }
-  if(typeof setInterval!=='undefined')setInterval(()=>{if(isAdmin && !document.hidden && !document.getElementById('management-workspace').hidden)loadTraffic();},60000);
+  if(typeof setInterval!=='undefined')setInterval(()=>{if(isAdmin && !document.hidden && !document.getElementById('traffic-section').hidden)loadTraffic();},60000);
   function renderTrafficHistory(){
     if(!trafficData)return;const target=document.getElementById('traffic-history');target.replaceChildren();
     const rows=trafficData[document.getElementById('traffic-period').value];
-    const max=Math.max(1,...rows.map(r=>r.upload+r.download));
-    for(const r of rows){const row=document.createElement('div');row.className='card';row.textContent=r.date+' · ↑ '+trafficBytes(r.upload)+' · ↓ '+trafficBytes(r.download);
-      const bar=document.createElement('div');bar.style.cssText='height:8px;background:var(--accent);margin-top:8px;border-radius:4px';bar.style.width=(100*(r.upload+r.download)/max)+'%';row.appendChild(bar);target.appendChild(row);}
-    if(!rows.length)target.textContent='History will appear after collection begins.';
+    trafficTable('traffic-history',['Period (UTC)','Upload','Download','Total'],[...rows].reverse().map(r=>[r.date,trafficBytes(r.upload),trafficBytes(r.download),trafficBytes(r.upload+r.download)]));
   }
+
   function loadAll() { if(isAdmin) {loadMembers();loadTraffic();} fetchStatus(); loadPeers().catch(()=>{document.getElementById('peers-list').textContent='Unable to load saved files. Please refresh to retry.';if(isAdmin)document.getElementById('admin-peers-list').textContent='Unable to load devices. Please refresh to retry.';}); }
 
   async function addPeer() {
