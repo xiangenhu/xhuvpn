@@ -299,6 +299,16 @@
       .admin-table td:nth-child(3){max-width:120px}
       #app .admin-table button{min-height:44px}
     }
+    /* Keep each device and its action columns on one horizontal table row. */
+    #members-list .traffic-table-wrap{overflow-x:auto;border:1px solid #34495e}
+    .admin-table{table-layout:auto;min-width:900px;display:table}
+    .admin-table thead{display:table-header-group}.admin-table tbody{display:table-row-group}
+    .admin-table tr{display:table-row;border:0;padding:0;margin:0}
+    .admin-table th:nth-child(n){width:auto}
+    .admin-table td{display:table-cell;padding:12px 14px!important;max-width:none!important;border-bottom:1px solid #304357;vertical-align:middle}
+    .admin-table td:first-child,.admin-table td:nth-child(2){min-width:180px}
+    #app .admin-table button{white-space:nowrap;font-size:12px;min-height:40px}
+    .admin-table .admin-email{margin-bottom:4px}
   </style>
 </head>
 <body>
@@ -911,9 +921,9 @@
       const wrap=document.createElement('div');wrap.className='traffic-table-wrap';
       const table=document.createElement('table');table.className='traffic-table admin-table';
       const head=table.createTHead().insertRow();
-      for(const title of ['Device','Owner & access','Actions']){const th=document.createElement('th');th.scope='col';th.textContent=title;head.appendChild(th);}
+      for(const title of ['Device','Owner & access','Check connection','Revoke device','Owner access']){const th=document.createElement('th');th.scope='col';th.textContent=title;head.appendChild(th);}
       const body=table.createTBody();wrap.appendChild(table);box.appendChild(wrap);
-      if(!rows.length){const cell=body.insertRow().insertCell();cell.colSpan=3;cell.textContent='No members or requests yet.';}
+      if(!rows.length){const cell=body.insertRow().insertCell();cell.colSpan=5;cell.textContent='No members or requests yet.';}
       const deviceRows=peers.map(device=>({device,user:records.get(device.owner || 'Unassigned')})).sort((a,b)=>a.device.name.localeCompare(b.device.name));
       for(const user of rows)if(!peers.some(p=>(p.owner || 'Unassigned')===user.email))deviceRows.push({user,device:null});
       for(const {user,device} of deviceRows) {
@@ -925,13 +935,13 @@
         const email=document.createElement('strong');email.className='admin-email';email.textContent=user.email;identity.appendChild(email);
         const status=document.createElement('span');status.className='admin-access '+(user.request?'pending':user.label==='Active'?'active':'');status.textContent=user.label;identity.appendChild(status);
         if(user.emailStatus){const delivery=document.createElement('small');delivery.className='admin-delivery';delivery.textContent=user.emailStatus==='sent'?'Invitation email accepted':'Email unconfirmed: '+(user.emailError || 'Check gateway records');identity.appendChild(delivery);}
-        const row=tr.insertCell();row.dataset.label='Actions';
+        const checkCell=tr.insertCell();checkCell.dataset.label='Check connection';
         if(device){
-          const check=document.createElement('button');check.className='btn-muted';check.textContent='Check connection';check.addEventListener('click',()=>checkConnection(device.name));row.appendChild(check);
+          const check=document.createElement('button');check.className='btn-muted';check.textContent='Check connection';check.addEventListener('click',()=>checkConnection(device.name));checkCell.appendChild(check);
         }
-        const menu=document.createElement('details');menu.className='admin-actions';const toggle=document.createElement('summary');toggle.textContent='More actions';menu.appendChild(toggle);
-        if(device){const revoke=document.createElement('button');revoke.className='btn-danger';revoke.textContent='Revoke this device';revoke.addEventListener('click',()=>removePeer(device.name));menu.appendChild(revoke);}
-        row.appendChild(menu);
+        const revokeCell=tr.insertCell();revokeCell.dataset.label='Revoke device';
+        if(device){const revoke=document.createElement('button');revoke.className='btn-danger';revoke.textContent='Revoke device';revoke.addEventListener('click',()=>removePeer(device.name));revokeCell.appendChild(revoke);}
+        const row=tr.insertCell();row.dataset.label='Owner access';
         if(user.request){const approve=document.createElement('button');approve.className='btn-primary';approve.textContent='Prepare invitation';approve.addEventListener('click',()=>{
           document.querySelector('.admin-invite').open=true;
           document.getElementById('invite-email').value=user.email;document.getElementById('email-invite').checked=true;
@@ -946,7 +956,7 @@
             try{await jsonRequest('/api/admin/users/disable',{email:user.email});document.getElementById('member-status').textContent='User disabled and VPN configuration updated.';}
             catch(e){document.getElementById('member-status').textContent=e.message;}
             finally{loadAll();}
-          });menu.appendChild(button);
+          });row.appendChild(button);
         }
 
       }
