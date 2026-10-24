@@ -16,7 +16,7 @@ process.env.PROXY_CLIENT_ID ??= 'xhuvpn';
 const express   = require('express');
 const path      = require('path');
 const crypto    = require('crypto');
-const {parseInventory,mergeInventory,vpnEndpoint}=require('./lib/device-setup');
+const {parseInventory,preserveExistingDevices,vpnEndpoint}=require('./lib/device-setup');
 const {withDeadline}=require('./lib/deadline');
 const qrcode    = require('qrcode');
 const { NodeSSH } = require('node-ssh');
@@ -220,7 +220,7 @@ const authRecords = {
   }
 };
 const {createStateStore}=require('./lib/state-store');
-const {createAccess,AccessError}=require('./lib/access');
+const {ADMIN,createAccess,AccessError}=require('./lib/access');
 const stateStore=createStateStore(storage.bucket(GCS_BUCKET));
 const remoteBrowser=require('./lib/remote-browser').createRemoteBrowser({store:stateStore});
 const NOTICE_VERSION='2026-10-23';
@@ -258,19 +258,16 @@ async function serverInventory() {
     const inventory=parseInventory(result.stdout,VPN_SUBNET);
     const keys=await gcsRead('server-keys.json');
     if(!keys || keys.pubKey!==inventory.publicKey) throw new AccessError(409,'Saved server identity does not match the running VPN. Existing connections have been preserved');
-    return inventory;
+    const managedResult=await runSSH(ssh,"sudo -n sh -c 'if [ -f /etc/wireguard/.xhuvpn-managed-peers ]; then cat /etc/wireguard/.xhuvpn-managed-peers; fi'");
+    if(managedResult.code!==0)throw new AccessError(503,'Cannot check prior VPN registrations. Existing connections have been preserved; please contact the administrator.');
+    const managed=managedResult.stdout.trim().split(/\s+/).filter(Boolean);
+    if(managed.some(key=>!/^[A-Za-z0-9+/]{43}=$/.test(key)))throw new AccessError(503,'Prior VPN registrations need administrator attention. Existing connections have been preserved.');
+    return {...inventory,managed:new Set(managed)};
   } finally {ssh.dispose();}
 }
 app.post('/api/admin/import-devices',auth,adminOnly,route(async(req,res)=>{
   const inventory=await serverInventory();
-  // A peer previously managed then removed must never be adopted back as owner.
-  const ssh=await connectSSH();let managed;
-  try {
-    const result=await runSSH(ssh,"sudo -n sh -c 'if [ -f /etc/wireguard/.xhuvpn-managed-peers ]; then cat /etc/wireguard/.xhuvpn-managed-peers; fi'");
-    if(result.code!==0) throw new AccessError(503,'Cannot read prior device registrations; import stopped');
-    managed=new Set(result.stdout.trim().split(/\s+/));
-  } finally {ssh.dispose();}
-  const imported=await stateStore.update(state=>mergeInventory(state,{...inventory,peers:inventory.peers.filter(p=>!managed.has(p.pubKey) || state.peers.some(saved=>saved.pubKey===p.pubKey))},req.user.email));
+  const imported=await stateStore.update(state=>preserveExistingDevices(state,inventory,ADMIN));
   await applyWireGuardConfig();
   res.json({imported});
 }));
@@ -392,14 +389,12 @@ app.post('/api/peers', auth, requireConsent, route(async (req, res) => {
   const {pubKey:serverPubKey}=await getOrCreateServerKeys();
   const owner=req.authType==='user'?req.user.email:(req.body.owner || req.user.email);
   const ip=await stateStore.update(state=>{
-    for(const live of inventory.peers) {
-      if(!state.peers.some(p=>p.pubKey===live.pubKey && p.ip===live.ip)) throw new AccessError(409,'Administrator: click Import existing devices before adding another device');
-    }
     if(req.authType==='user' && !state.users[owner]?.enabled) throw new AccessError(403,'Access revoked');
     if(state.users[owner]?.enabled===false) throw new AccessError(403,'User is disabled');
     if(owner!==req.user.email && !state.users[owner]?.enabled) throw new AccessError(400,'Choose an active invited user');
     if(state.peers.some(p=>p.name===name)) throw new AccessError(409,'Device name already exists');
     if(req.authType==='user' && state.peers.filter(p=>p.owner===owner).length>=3) throw new AccessError(403,'Maximum 3 devices per user');
+    preserveExistingDevices(state,inventory,ADMIN);
     const ip=nextClientIP(state.peers);
     state.peers.push({name,ip,pubKey,privKey,owner,createdAt:new Date().toISOString()});
     return ip;
@@ -417,6 +412,7 @@ app.delete('/api/peers/:name', auth, route(async (req, res) => {
     const peer=state.peers.find(p=>p.name===req.params.name);
     if(!peer) throw new AccessError(404,'Device not found');
     if(!canAccessPeer(peer,req)) throw new AccessError(403,'Not your device');
+    state.retiredPeerKeys ||= {};state.retiredPeerKeys[peer.pubKey]=true;
     state.peers=state.peers.filter(p=>p.name!==req.params.name);
   });
   try {await applyWireGuardConfig();} catch {return res.status(503).json({error:'Device removed from records, but VPN synchronization failed. Retry synchronization.',needsReconcile:true});}

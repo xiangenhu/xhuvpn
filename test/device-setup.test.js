@@ -1,6 +1,6 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
-const {parseInventory,mergeInventory,vpnEndpoint}=require('../lib/device-setup');
+const {parseInventory,mergeInventory,preserveExistingDevices,vpnEndpoint}=require('../lib/device-setup');
 test('profile endpoint uses the VPN machine when setup used the portal address',()=>{
  const vm='203.0.113.10',portal='https://vpn.skoonline.org';
  for(const value of [undefined,'','vpn.skoonline.org',portal,portal+'/'])assert.equal(vpnEndpoint(vm,value,portal),vm);
@@ -20,4 +20,14 @@ test('refuses unsupported routes and conflicting saved addresses',()=>{
  assert.throws(()=>parseInventory(`${server}\n${phone}\t10.8.0.3/32,10.8.0.4/32`,'10.8.0'));
  const inventory=parseInventory(`${server}\n${phone}\t10.8.0.3/32`,'10.8.0');
  assert.throws(()=>mergeInventory({peers:[{pubKey:server,ip:'10.8.0.3'}]},inventory,'owner'));
+});
+test('member enrollment preserves manual peers under the administrator without resurrecting retired peers',()=>{
+ const retired='r'.repeat(43)+'=',removed='m'.repeat(43)+'=';
+ const state={peers:[],retiredPeerKeys:{[retired]:true}};
+ const inventory={peers:[{pubKey:phone,ip:'10.8.0.2'},{pubKey:retired,ip:'10.8.0.3'},{pubKey:removed,ip:'10.8.0.4'}],managed:new Set([removed])};
+ assert.equal(preserveExistingDevices(state,inventory,'admin@example.com'),1);
+ assert.equal(state.peers.length,1);assert.equal(state.peers[0].owner,'admin@example.com');
+ assert.equal(state.peers[0].privKey,undefined);assert.equal(state.peers[0].pubKey,phone);
+ assert.equal(preserveExistingDevices(state,inventory,'admin@example.com'),0);
+ assert.throws(()=>preserveExistingDevices({peers:[{pubKey:server,ip:'10.8.0.2'}]},inventory,'admin@example.com'),/reserved/);
 });
