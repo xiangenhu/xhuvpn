@@ -4,7 +4,7 @@ const fs=require('node:fs');const vm=require('node:vm');const path=require('node
 const {createRequire}=require('node:module');
 const {fakeBucket}=require('./fake-bucket');const {createOAuth}=require('../lib/oauth');
 test('HTTP portal: sole admin invites friend, friend cannot administer, disable revokes live session and peers',async t=>{
- const bucket=fakeBucket();let identity='xiangenhu@gmail.com',lastState,sshFails=false;const scripts=[];
+ const bucket=fakeBucket();let identity='xiangenhu@gmail.com',lastState,sshFails=false;const scripts=[],approvalMails=[],invitationMails=[];
  const manualKey='p'.repeat(43)+'=';let manualIP='10.8.0.2';
  const staleKey='s'.repeat(43)+'=';
  await bucket.file('peers.json').save(JSON.stringify([{name:'old-profile',ip:'10.8.0.2',pubKey:staleKey,privKey:'old-private',owner:'xiangenhu@gmail.com'}]));
@@ -15,6 +15,7 @@ test('HTTP portal: sole admin invites friend, friend cannot administer, disable 
  const filename=path.resolve(__dirname,'../server.js'),realRequire=createRequire(filename),moduleObj={exports:{}};
  const sandboxRequire=name=>{
    if(name==='dotenv')return {config(){}};
+   if(name==='./lib/smtp')return {sendApprovalRequest:async request=>approvalMails.push(request),sendInvitation:async invitation=>invitationMails.push(invitation)};
    if(name==='@google-cloud/storage')return {Storage:class{bucket(){return bucket;}}};
    if(name==='@google-cloud/secret-manager')return {SecretManagerServiceClient:class{}};
    if(name==='node-ssh')return {NodeSSH:class{async connect(){} async execCommand(command){scripts.push(command);return {code:sshFails?1:0,stdout:command.includes('allowed-ips')?serverKey+'\n'+manualKey+'\t'+manualIP+'/32\n':'',stderr:''};}dispose(){}}};
@@ -30,10 +31,21 @@ test('HTTP portal: sole admin invites friend, friend cannot administer, disable 
  assert.equal((await call('/api/peers',{cookie:admin.cookie,body:{name:'before-consent'}})).status,403);
  assert.equal((await call('/api/consent',{cookie:admin.cookie,body:{version:'2026-10-23',accept:true}})).status,200);
  const invited=await call('/api/admin/invitations',{cookie:admin.cookie,body:{email:'friend@example.com'}});assert.equal(invited.status,201);const invitation=await invited.json();
- const stranger=await login('stranger@example.com');assert.equal(stranger.response.status,403);
+ const stranger=await login('stranger@example.com');assert.equal(stranger.response.status,302);
+ const strangerMe=await (await call('/api/me',{cookie:stranger.cookie})).json();assert.equal(strangerMe.vpnAccess,'not_granted');
+ const request=await call('/api/access/request',{cookie:stranger.cookie,body:{}});assert.equal(request.status,200);assert.equal((await request.json()).emailStatus,'sent');
+ assert.equal(approvalMails.length,1);assert.equal(approvalMails[0].email,'stranger@example.com');
+ assert.equal((await (await call('/api/access/request',{cookie:stranger.cookie,body:{}})).json()).emailStatus,'already-requested');assert.equal(approvalMails.length,1);
+ assert.equal((await (await call('/api/me',{cookie:stranger.cookie})).json()).requestSent,true);
+ assert.equal((await call('/api/peers',{cookie:stranger.cookie,body:{name:'not-approved'}})).status,403);
+ assert.equal((await call('/api/extension/pair/complete',{cookie:stranger.cookie,body:{deviceCode:'d'.repeat(43),verifier:'v'.repeat(43)}})).status,403);
+ const grant=await (await call('/api/admin/invitations',{cookie:admin.cookie,body:{email:'stranger@example.com',sendEmail:true}})).json();
+ assert.equal(invitationMails.length,1);assert.equal(invitationMails[0].email,'stranger@example.com');
+ assert.equal((await call('/api/access/redeem',{cookie:stranger.cookie,body:{code:grant.code}})).status,200);
+ assert.equal((await (await call('/api/me',{cookie:stranger.cookie})).json()).vpnAccess,'granted');
  const friend=await login('friend@example.com',invitation.code);assert.equal(friend.response.status,302);
  assert.equal((await call('/api/consent',{cookie:friend.cookie,body:{version:'2026-10-23',accept:true}})).status,200);
- const me=await (await call('/api/me',{cookie:friend.cookie})).json();assert.equal(me.authType,'user');
+ const me=await (await call('/api/me',{cookie:friend.cookie})).json();assert.equal(me.authType,'user');assert.equal(me.vpnAccess,'granted');
  for(const [url,body] of [['/api/admin/invitations',{email:'other@example.com'}],['/api/admin/users/disable',{email:'xiangenhu@gmail.com'}],['/api/admin/reconcile',{}]])assert.equal((await call(url,{cookie:friend.cookie,body})).status,403);
  const device=await call('/api/peers',{cookie:friend.cookie,body:{name:'friend-phone'}});assert.equal(device.status,201);
  const profile=await device.json();assert.match(profile.config,/Address\s*= 10\.8\.0\.3\/32/);assert.match(profile.config,/MTU\s*= 1380/);
@@ -76,7 +88,7 @@ test('HTTP portal: sole admin invites friend, friend cannot administer, disable 
  assert.equal(allFriendDevices.length,4);assert.ok(allFriendDevices.every(p=>p.owner==='friend@example.com'));
  sshFails=true;
  const disabled=await call('/api/admin/users/disable',{cookie:admin.cookie,body:{email:'friend@example.com'}});assert.equal(disabled.status,503);assert.equal((await disabled.json()).needsReconcile,true);
- assert.equal((await call('/api/me',{cookie:friend.cookie})).status,403);
+ const revokedMe=await call('/api/me',{cookie:friend.cookie});assert.equal(revokedMe.status,200);assert.equal((await revokedMe.json()).vpnAccess,'not_granted');assert.equal((await call('/api/peers',{cookie:friend.cookie})).status,403);
  const all=await (await call('/api/peers',{cookie:admin.cookie})).json();assert.equal(all.length,3);assert.ok(all.some(p=>p.name==='owner-phone'));assert.ok(all.some(p=>p.pubKey===manualKey));
  sshFails=false;assert.equal((await call('/api/admin/reconcile',{cookie:admin.cookie,body:{}})).status,200);
  assert.equal((await call('/api/admin/users/disable',{cookie:admin.cookie,body:{email:'xiangenhu@gmail.com'}})).status,400);

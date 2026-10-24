@@ -28,7 +28,7 @@ usability study or proof that the production VPN is working.
 | Finding | Resulting interface behavior |
 | --- | --- |
 | Owner setup and administration mixed together | Separate My VPN and Administration; personal list contains only the signed-in account's devices |
-| Unavailable services presented as recommended | WireGuard is the default; unavailable services are disabled; alternatives are expandable |
+| Unavailable services presented as recommended | Remote browser is removed from the selector. Browser extension and WireGuard are selectable; extension setup stays accessible while an unconfigured proxy is reported as unavailable |
 | Extension installation needs developer mode or temporary add-ons | Clearly labeled testing preview, intended for assisted testing, not advertised as a simple colleague installation |
 | Device naming looks like a prerequisite | Suggested name retained; optional edits collapsed |
 | Installing WireGuard mistaken for obtaining its profile | Explicitly explain that this website creates the configuration file |
@@ -53,3 +53,18 @@ usability study or proof that the production VPN is working.
   service and lost download. Each must show a clear current state and next action.
 - Observe a nontechnical colleague completing the process without coaching. Record
   where they hesitate. Automated tests cannot establish ease of use.
+
+## Account and connection choices update
+
+Any explicitly verified Google or SKO email identity can sign in to see its VPN
+access status. A not-granted account can request a code from xiangenhu@gmail.com
+and redeem the email-bound code without signing out. Approved accounts receive
+connection instructions after accepting the research-use agreement. Revoked
+accounts can view status and request reapproval, but cannot use VPN resources.
+Only a fresh explicit administrator-issued code can restore their access.
+
+The connection selector now offers Browser extension and WireGuard configuration
+file only. Extension setup is selectable even before proxy configuration; this
+does not bypass backend health checks or imply that traffic is connected. Remote
+browser is not a user choice. Signed distribution and live HTTPS proxy activation
+remain prerequisites for a simple working extension experience.

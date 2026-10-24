@@ -29,7 +29,7 @@ test('verified SMTP owner signs in as sole admin without storing password or pro
  await f.oauth.auth(req,f.response(),()=>passed=true);assert.equal(passed,true);assert.equal(req.authType,'admin');
  assert.ok([...f.data.values()].every(v=>!v.includes('test-password')&&!v.includes('server-only-token')));
 });
-test('new verified proxy account waits for approval; code unlocks same session and disabling revokes email login',async()=>{
+test('new verified proxy account waits for approval; code unlocks same session and disabling revokes VPN access while preserving account sign-in',async()=>{
  const f=fixture();f.setReply({token:'test',user:{email:'friend@example.com',emailVerified:true}});
  const login=await f.login('friend@example.com');assert.equal(login.code,200);assert.equal((await f.login('friend@example.com')).code,200);
  assert.equal(Object.keys(f.state().users).length,0);assert.equal(await f.access.role({email:'friend@example.com'}),'pending');
@@ -42,7 +42,8 @@ test('new verified proxy account waits for approval; code unlocks same session a
  }
  const invite=await f.access.invite('friend@example.com');await f.access.redeem({email:'friend@example.com'},invite.code);
  let passed=false;await f.oauth.auth({headers,method:'GET',path:'/api/peers'},f.response(),()=>passed=true);assert.equal(passed,true);
- await f.access.disable('friend@example.com');assert.equal((await f.login('friend@example.com')).code,403);
+ await f.access.disable('friend@example.com');assert.equal((await f.login('friend@example.com')).code,200);
+ const blocked=f.response();await f.oauth.auth({headers,method:'GET',path:'/api/peers'},blocked,()=>assert.fail('Revoked account regained VPN access'));assert.equal(blocked.code,403);
 });
 test('SMTP login rejects missing/false verification, email mismatch, CSRF and excess attempts',async()=>{
  for(const user of [{email:'xiangenhu@gmail.com'},{email:'xiangenhu@gmail.com',emailVerified:false},{email:'xiangenhu@gmail.com',emailVerified:true,verified:false},{email:'other@example.com',emailVerified:true}]) {

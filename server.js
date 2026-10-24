@@ -289,7 +289,7 @@ app.get('/api/peers/:name/connection',auth,route(async(req,res)=>{
 
 app.get('/api/me', auth, route(async(req, res) => {
   const state=(await stateStore.read()).value;
-  res.json({authType:req.authType,user:req.user,notice:RESEARCH_NOTICE,noticeVersion:NOTICE_VERSION,accepted:state.consent?.[req.user.email]?.version===NOTICE_VERSION,browserEnabled:remoteBrowser.enabled,extensionEnabled:extensionAccess.enabled});
+  res.json({authType:req.authType,vpnAccess:req.authType==='pending'?'not_granted':'granted',requestSent:Date.now()-Date.parse(state.requests?.[req.user.email]?.requestedAt)<86400000,user:req.user,notice:RESEARCH_NOTICE,noticeVersion:NOTICE_VERSION,accepted:state.consent?.[req.user.email]?.version===NOTICE_VERSION,browserEnabled:remoteBrowser.enabled,extensionEnabled:extensionAccess.enabled});
 }));
 app.post('/api/consent',auth,route(async(req,res)=>{
   if(req.body.version!==NOTICE_VERSION || req.body.accept!==true) throw new AccessError(400,'Please accept the current research-use notice');

@@ -233,19 +233,19 @@
 <section id="approval-section" class="auth-container" hidden>
   <div class="approval-brand"><span class="brand-mark" aria-hidden="true">胡</span>Xiangen’s Research Network</div>
   <div class="approval-check"><span aria-hidden="true">✓</span> Email verified</div>
-  <h2>You’re one step away.</h2>
+  <h2>VPN access: not yet granted</h2>
   <p id="approval-identity"></p>
-  <p class="approval-intro">Welcome! Your account is ready. This is a private network for colleagues and research teams, so Xiangen needs to approve your access before you can connect.</p>
+  <p class="approval-intro">You have signed in successfully. To use the VPN, request a VPN access code from <strong>xiangenhu@gmail.com</strong> below. Signing in alone does not grant VPN access.</p>
   <div class="approval-step">
   <h3><span aria-hidden="true">1</span> Ask Xiangen for access</h3>
   <p>Send a request below. Once approved, you’ll receive a personal invitation code.</p>
-  <button class="btn-muted" id="request-approval">Request my access code</button>
+  <button class="btn-primary" id="request-approval">Request VPN access code from Xiangen</button>
   </div>
   <div class="approval-step">
   <h3><span aria-hidden="true">2</span> Already have your code?</h3>
-  <label for="approval-code">Your personal invitation code</label>
+  <label for="approval-code">Your VPN access code</label>
   <input type="text" id="approval-code" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Paste the code Xiangen sent you">
-  <button class="btn-primary" id="submit-approval">Verify code &amp; continue</button>
+  <button class="btn-primary" id="submit-approval">Verify code &amp; connect</button>
   </div>
   <p id="approval-status" role="status" aria-live="polite"></p>
   <div class="approval-footer"><p>Need a hand? <a href="mailto:xiangenhu@gmail.com">Contact Xiangen</a><br>For colleagues and research teams · Research use only</p>
@@ -253,6 +253,7 @@
 </section>
 
 <section id="consent-section" class="auth-container" hidden>
+  <p><strong>VPN access granted.</strong> Accept the research-use agreement below to continue to the connection instructions.</p>
   <h2>Research-use agreement</h2>
   <p id="research-notice"></p>
   <label><input type="checkbox" id="accept-notice"> I understand and agree to these conditions.</label>
@@ -274,16 +275,15 @@
   <section class="section">
     <h2>Start here</h2>
     <p>Use the browser extension to sign in and connect, or use a WireGuard configuration file. No additional access approval is needed.</p>
-    <details><summary>Other connection options</summary>
     <label for="connection-mode">Connection mode</label>
-    <select id="connection-mode"><option value="wireguard">Connect with WireGuard</option><option value="extension" disabled>Browser extension preview — not available yet</option><option value="browser" disabled>Remote browser — not available yet</option></select>
-    <p>The extension preview requires manual installation and is intended for testing with Xiangen’s help. Changing this choice does not disconnect WireGuard.</p></details>
+    <select id="connection-mode"><option value="extension">Browser extension</option><option value="wireguard">WireGuard configuration file</option></select>
+    <p>The extension preview currently requires manual installation. Changing this choice does not disconnect WireGuard.</p>
     <p class="research-reminder">Created by Xiangen Hu for colleagues and research teams. Research use only. Do not distribute access without permission. You are responsible for your internet activity and improper use.</p>
   </section>
   <section id="extension-panel" class="section">
     <h2>A connection for your browser</h2>
     <p>Install once, then use Connect / Disconnect in the extension. No WireGuard app or configuration file is needed for this mode. Regular web tabs in this browser use the research proxy; other apps and private windows do not.</p>
-    <p id="extension-install" hidden><a class="btn-primary" href="/extension-setup.html" target="_blank" rel="noopener">Extension preview instructions</a></p>
+    <p id="extension-install"><a class="btn-primary" href="/extension-setup.html" target="_blank" rel="noopener">Get the browser extension</a></p>
     <p id="extension-status" role="status"></p>
     <div id="extension-approval" hidden>
       <h3>Approve this browser</h3><p id="extension-request"></p>
@@ -461,20 +461,16 @@
   const mode=document.getElementById('connection-mode');
   function chooseMode(save=true) {
     document.getElementById('wireguard-panel').hidden=mode.value!=='wireguard';
-    document.getElementById('browser-panel').hidden=mode.value!=='browser';
+    document.getElementById('browser-panel').hidden=true;
     document.getElementById('extension-panel').hidden=mode.value!=='extension';
     if(save)localStorage.setItem('vpn_connection_mode',mode.value);
   }
-  mode.value='wireguard';
+  mode.value='extension';
   mode.addEventListener('change',chooseMode);chooseMode(false);
   function configureConnectionModes(data) {
-    for(const option of mode.options) {
-      if(option.value==='extension'){option.disabled=!data.extensionEnabled;option.textContent=data.extensionEnabled?'Browser extension — testing preview':'Browser extension — not available yet';}
-      if(option.value==='browser'){option.disabled=!data.browserEnabled;option.textContent=data.browserEnabled?'Open a remote research browser':'Remote browser — not available yet';}
-    }
     const desired=(sessionStorage.getItem('vpn_extension_code') || new URLSearchParams(location.search).get('extension')==='connect')?'extension':localStorage.getItem('vpn_connection_mode');
-    mode.value=Array.from(mode.options).some(o=>o.value===desired && !o.disabled)?desired:'wireguard';
-    document.getElementById('extension-install').hidden=!data.extensionEnabled;
+    mode.value=['extension','wireguard'].includes(desired)?desired:'extension';
+    document.getElementById('extension-install').hidden=false;
     chooseMode();
   }
   document.getElementById('wireguard-installed').addEventListener('click',()=>{
@@ -543,10 +539,15 @@
       isAdmin = data.authType === 'admin';
       document.getElementById('auth-section').style.display = 'none';
       if(data.authType==='pending') {
+        browserAvailable=false;
+        document.getElementById('consent-section').hidden=true;
         document.getElementById('app').style.display='none';
         document.getElementById('approval-section').hidden=false;
         document.getElementById('approval-identity').textContent='Signed in as '+currentUser.email;
         document.getElementById('approval-code').value=document.getElementById('invite-code').value;
+        document.getElementById('request-approval').disabled=data.requestSent===true;
+        document.getElementById('request-approval').textContent=data.requestSent?'Access requested':'Request VPN access code from Xiangen';
+        document.getElementById('approval-status').textContent=data.requestSent?'Your request is saved. When Xiangen sends your VPN access code, enter it above.':'';
         document.getElementById('request-approval').focus();
         return;
       }
@@ -556,7 +557,7 @@
       document.getElementById('consent-section').hidden=data.accepted;
       if(!data.accepted){document.getElementById('app').style.display='none';return;}
       document.getElementById('browser-start').disabled=!data.browserEnabled;
-      browserAvailable=data.browserEnabled;
+      browserAvailable=false;
       configureConnectionModes(data);
       document.getElementById('browser-stop').disabled=!data.browserEnabled;
       if(!data.browserEnabled) document.getElementById('browser-status').textContent='The optional remote-browser server is not configured. Use the extension or WireGuard instead.';
@@ -566,11 +567,10 @@
       document.getElementById('app').style.display = 'block';
       document.getElementById('admin-status').style.display = isAdmin ? 'block' : 'none';
       document.getElementById('admin-members').hidden = !isAdmin;
-      document.getElementById('personal-identity').textContent='VPN access approved · '+currentUser.email;
+      document.getElementById('personal-identity').textContent='VPN access granted · '+currentUser.email;
       selectWorkspace('personal');
       document.getElementById('user-info').textContent = (isAdmin?'Administrator · ':'Member · ') + currentUser.email;
       loadAll();
-      if(data.browserEnabled && mode.value==='browser') void openResearchBrowser();
     } catch { showMsg('login-msg','err','Unable to contact the server. Please retry.'); }
   }
   async function logout(stopBrowser=false) {
