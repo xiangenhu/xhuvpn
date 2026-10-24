@@ -217,13 +217,30 @@
     <input id="signin-password" type="password" autocomplete="current-password" required>
     <button class="btn-primary" type="submit">Sign in with email</button>
   </form>
+  <details id="email-registration"><summary>Create an account with your email</summary>
+    <p class="subtitle">Choose a password, then verify your email using the code sent to your inbox. VPN access requires Xiangen’s approval.</p>
+    <form id="registration-form">
+      <label for="register-email">Email</label>
+      <input id="register-email" type="email" autocomplete="username" required>
+      <label for="register-password">Create password (8–72 UTF-8 bytes)</label>
+      <input id="register-password" type="password" autocomplete="new-password" minlength="8" required>
+      <button class="btn-primary" type="submit">Send verification code</button>
+    </form>
+    <form id="verification-form" hidden>
+      <label for="register-code">Six-digit email verification code</label>
+      <input id="register-code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required>
+      <button class="btn-primary" type="submit">Verify email</button>
+      <button class="btn-muted" id="resend-registration" type="button">Resend code</button>
+    </form>
+    <p id="registration-msg" role="status" aria-live="polite"></p>
+  </details>
   <details id="invitation-details"><summary>Have an invitation code?</summary>
   <label for="invite-code">Your invitation code</label>
   <input id="invite-code" autocomplete="off" placeholder="Paste your invitation code">
   <button class="btn-primary" id="redeem-invite">Accept invitation with Google</button>
   <p class="subtitle">Use the Google account whose email received the invitation.</p>
   <p class="subtitle">Using email sign-in? Enter the code here, then sign in above.</p></details>
-  <p class="first-visit"><strong>First time here?</strong> Sign in with your verified SKO email account to request access from Xiangen. Once approved, you’ll be guided through setup.</p>
+  <p class="first-visit"><strong>First time here?</strong> Create an email account above, verify the code in your inbox, then sign in to request access from Xiangen. Once approved, you’ll be guided through setup.</p>
   <div id="login-msg" role="status" aria-live="polite"></div>
   </section></div>
   <footer class="landing-footer"><div><strong>A small network. A shared purpose.</strong>Created and administered by Xiangen Hu.</div><p class="research-notice">For colleagues and research teams, for research purposes only. Do not share or distribute access, invitation codes, profiles, or session links without Xiangen Hu’s permission. Users are responsible for their internet activity and any improper use, and must comply with applicable laws and institutional policies.</p></footer>
@@ -775,6 +792,43 @@
     const button=document.getElementById('retry-sync');button.disabled=true;
     try{await jsonRequest('/api/admin/reconcile',{});document.getElementById('member-status').textContent='VPN configuration synchronized.';}
     catch(e){document.getElementById('member-status').textContent=e.message;}finally{button.disabled=false;loadAll();}
+  });
+
+  let registrationEmail='';
+  async function registrationAction(action,body,button) {
+    button.disabled=true;
+    const status=document.getElementById('registration-msg');
+    status.textContent='Please wait…';
+    try {
+      const data=await jsonRequest('/api/auth/email/'+action,body);
+      status.textContent=data.message;return true;
+    } catch(e) {status.textContent=e.message;return false;}
+    finally {button.disabled=false;}
+  }
+  document.getElementById('registration-form').addEventListener('submit',async event=>{
+    event.preventDefault();
+    const email=document.getElementById('register-email').value.trim().toLowerCase();
+    const password=document.getElementById('register-password');
+    const body={email,password:password.value};
+    const ok=await registrationAction('register',body,event.submitter);
+    password.value='';delete body.password;
+    if(ok) {
+      registrationEmail=email;
+      document.getElementById('verification-form').hidden=false;
+      document.getElementById('register-code').focus();
+    }
+  });
+  document.getElementById('verification-form').addEventListener('submit',async event=>{
+    event.preventDefault();
+    if(await registrationAction('verify',{email:registrationEmail,code:document.getElementById('register-code').value.trim()},event.submitter)) {
+      document.getElementById('signin-email').value=registrationEmail;
+      document.getElementById('register-code').value='';
+      document.getElementById('verification-form').hidden=true;
+      document.getElementById('signin-password').focus();
+    }
+  });
+  document.getElementById('resend-registration').addEventListener('click',event=>{
+    registrationAction('resend-code',{email:registrationEmail},event.currentTarget);
   });
   const invitation=new URLSearchParams(location.hash.slice(1)).get('invite');
   if(invitation){document.getElementById('invite-code').value=invitation;document.getElementById('invitation-details').open=true;history.replaceState({},'',location.pathname);}
