@@ -36,3 +36,16 @@ test('unavailable services cannot remain selected from a previous visit',()=>{
  configure({extensionEnabled:true,browserEnabled:false});assert.equal(mode.value,'extension');assert.match(options[1].textContent,/testing preview/);
  pending=true;saved='wireguard';configure({extensionEnabled:true,browserEnabled:false});assert.equal(mode.value,'extension');assert.equal(choices,3);
 });
+test('personal saved-file view does not expose device names or IP addresses',()=>{
+ const makeNode=()=>({children:[],append(child){this.children.push(child);},replaceChildren(){this.children=[];},addEventListener(){}});
+ const personal=makeNode(),management=makeNode();
+ const renderSource=script.slice(script.indexOf('  function renderPeerRows('),script.indexOf('  function loadAll('));
+ const render=vm.runInNewContext(renderSource+';renderPeerRows',{
+  document:{getElementById:id=>id==='peers-list'?personal:management,createElement:makeNode},viewConfig(){},checkConnection(){},removePeer(){}
+ });
+ const records=[{name:'internal-device-name',ip:'10.8.0.2',owner:'colleague@example.com',hasConfig:true}];
+ render('peers-list',records,false);
+ const text=personal.children[0].children.map(n=>n.textContent).join(' ');
+ assert.match(text,/WireGuard configuration/);assert.ok(!text.includes('internal-device-name'));assert.ok(!text.includes('10.8.0.2'));assert.ok(!/device/i.test(text));
+ render('admin-peers-list',records,true);assert.match(management.children[0].children[0].textContent,/internal-device-name.*10\.8\.0\.2.*colleague@example.com/);
+});

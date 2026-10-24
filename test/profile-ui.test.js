@@ -37,7 +37,7 @@ test('failed preflight stays visible and does not pretend to create a profile',a
 test('client timeout directs users to saved devices instead of silently retrying creation',async()=>{
  const f=fixture((path,body,{signal})=>new Promise((resolve,reject)=>signal.addEventListener('abort',()=>reject(Error('aborted')))));
  const pending=f.addPeer();f.timeout();await pending;
- assert.match(f.elements['add-msg'].textContent,/Check My saved configurations/);assert.equal(f.calls(),1);assert.equal(f.opened.length,0);
+ assert.match(f.elements['add-msg'].textContent,/Check Download a previous WireGuard file/);assert.equal(f.calls(),1);assert.equal(f.opened.length,0);
 });
 test('profile instructions remain open until explicit dismissal and focus follows the dialog',()=>{
  const elements={};
