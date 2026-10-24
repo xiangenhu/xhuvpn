@@ -407,6 +407,7 @@
   </header>
   <nav class="workspace-nav" aria-label="Workspace">
     <button type="button" id="personal-workspace-button" class="btn-primary" aria-pressed="true" aria-controls="personal-workspace" onclick="selectWorkspace('personal')">科学上网：Hu Lab exclusive network</button>
+    <button type="button" id="requests-workspace-button" class="btn-muted" aria-pressed="false" aria-controls="requests-workspace" onclick="selectWorkspace('requests')" hidden>New Requests</button>
     <button type="button" id="traffic-workspace-button" class="btn-muted" aria-pressed="false" aria-controls="traffic-section" onclick="selectWorkspace('traffic')" hidden>Traffic Analysis</button>
     <button type="button" id="management-workspace-button" class="btn-muted" aria-pressed="false" aria-controls="management-workspace" onclick="selectWorkspace('management')" hidden>Administration</button>
   </nav>
@@ -505,6 +506,17 @@
     <h2>Members &amp; devices</h2>
     <p>Welcome colleagues to your private research network. Only you can invite or disable members.</p>
 
+<h3>Device directory</h3><p>One row per device, with its owner. Each row shows the device owner and available actions.</p><div id="members-list"></div>
+    <p id="member-status" role="status"></p>
+    <details><summary>Connection maintenance</summary><p>If a device change did not reach the VPN server, retry synchronization.</p><button class="btn-muted" id="retry-sync">Retry VPN synchronization</button></details>
+  </section>
+    <div id="admin-peers-list" hidden></div><p id="admin-connection-result" role="status"></p>
+  </section>
+  <section class="section" id="requests-workspace" hidden aria-labelledby="requests-title">
+    <h2 id="requests-title">New Requests</h2>
+    <p>Review access requests and pending invitations. Prepare an invitation, review the address, then generate and email the access code.</p>
+    <button class="btn-muted" onclick="loadMembers()">Refresh requests</button>
+    <p id="requests-heading" role="status"></p><div id="new-requests-list"></div>
     <details class="admin-invite"><summary>Invite a colleague</summary><div class="invite-compose"><label for="invite-email">Invite a colleague by email</label>
     <div class="invite-controls">
     <input type="email" id="invite-email" placeholder="friend@gmail.com">
@@ -514,11 +526,7 @@
     <p id="invite-result" role="status"></p>
     <textarea id="invite-share" readonly hidden rows="4" style="width:100%" aria-label="Invitation link and code"></textarea>
     <button class="btn-muted" id="copy-invite" hidden>Copy invitation</button>
-    </details><h3>Device directory</h3><p>One row per device, with its owner. Requests and members without devices appear at the end.</p><p id="requests-heading"></p><div id="members-list"></div>
-    <p id="member-status" role="status"></p>
-    <details><summary>Connection maintenance</summary><p>If a device change did not reach the VPN server, retry synchronization.</p><button class="btn-muted" id="retry-sync">Retry VPN synchronization</button></details>
-  </section>
-    <div id="admin-peers-list" hidden></div><p id="admin-connection-result" role="status"></p>
+    </details>    <p id="requests-error" role="status"></p>
   </section>
   <section class="section" id="traffic-section" hidden>
     <h2>Traffic analysis · Admin only</h2>
@@ -563,8 +571,8 @@
   let currentUser = null;
   let isAdmin = false;
   function selectWorkspace(workspace) {
-    const selected=isAdmin && ['management','traffic'].includes(workspace)?workspace:'personal';
-    for(const [name,panel] of [['personal','personal-workspace'],['management','management-workspace'],['traffic','traffic-section']]){
+    const selected=isAdmin && ['management','traffic','requests'].includes(workspace)?workspace:'personal';
+    for(const [name,panel] of [['personal','personal-workspace'],['management','management-workspace'],['traffic','traffic-section'],['requests','requests-workspace']]){
       document.getElementById(panel).hidden=selected!==name;
       const button=document.getElementById(name==='traffic'?'traffic-workspace-button':name+'-workspace-button');
       button.hidden=name!=='personal' && !isAdmin;
@@ -908,6 +916,31 @@
     if(!response.ok) throw Error(result.error || 'Request failed. Please retry.');
     return result;
   }
+  function renderNewRequests(data){
+    const pending=new Map();
+    for(const r of data.requests || [])pending.set(r.email,{...r,status:'Access requested'});
+    for(const i of data.invitations || [])if(!data.users.some(u=>u.email===i.email && u.enabled))pending.set(i.email,{...pending.get(i.email),...i,status:'Invitation pending'});
+    const count=(data.requests || []).length;
+    document.getElementById('requests-workspace-button').textContent='New Requests'+(count?' ('+count+')':'');
+    document.getElementById('requests-heading').textContent=count+' access requests · '+[...pending.values()].filter(r=>r.status==='Invitation pending').length+' pending invitations';
+    document.getElementById('requests-error').textContent='';
+    const box=document.getElementById('new-requests-list');box.replaceChildren();
+    const wrap=document.createElement('div');wrap.className='traffic-table-wrap';
+    const table=document.createElement('table');table.className='traffic-table';wrap.appendChild(table);box.appendChild(wrap);
+    const head=table.createTHead().insertRow();for(const label of ['Email','Status','Requested / expires','Email delivery','Action']){const th=document.createElement('th');th.scope='col';th.textContent=label;head.appendChild(th);}
+    const body=table.createTBody();
+    if(!pending.size){const cell=body.insertRow().insertCell();cell.colSpan=5;cell.textContent='All caught up. No new requests or pending invitations.';}
+    for(const r of pending.values()){
+      const row=body.insertRow();row.insertCell().textContent=r.email;row.insertCell().textContent=r.status;
+      row.insertCell().textContent=r.expires?'Expires '+new Date(r.expires).toLocaleString():r.requestedAt?new Date(r.requestedAt).toLocaleString():'—';
+      row.insertCell().textContent=r.emailStatus==='sent'?'Accepted by mail service':r.emailStatus?(r.emailError || 'Unconfirmed'):'—';
+      const action=row.insertCell();const button=document.createElement('button');button.className='btn-primary';button.textContent=r.status==='Invitation pending'?'Prepare replacement':'Prepare invitation';button.addEventListener('click',()=>{
+        document.querySelector('.admin-invite').open=true;document.getElementById('invite-email').value=r.email;document.getElementById('email-invite').checked=true;
+        document.getElementById('invite-email').focus();document.getElementById('create-invite').scrollIntoView({behavior:'smooth',block:'center'});
+        document.getElementById('invite-result').textContent='Review the address, then generate the invitation. A replacement invalidates the previous code.';
+      });action.appendChild(button);
+    }
+  }
   let adminSort={column:0,ascending:true};
   function sortAdminTable(table,column,toggle=false){
     if(toggle)adminSort={column,ascending:adminSort.column===column?!adminSort.ascending:true};
@@ -931,11 +964,10 @@
     try {
       const data=await jsonRequest('/api/admin/users');
       const peers=await jsonRequest('/api/peers');
-      document.getElementById('requests-heading').textContent=(data.requests || []).length+' pending access requests';
+      renderNewRequests(data);
       const records=new Map();
       for(const u of data.users || [])records.set(u.email,{...u,label:u.enabled?'Active':'Disabled'});
       for(const i of data.invitations || [])if(!records.has(i.email))records.set(i.email,{...i,label:'Invitation pending',enabled:true});
-      for(const r of data.requests || [])if(!records.has(r.email))records.set(r.email,{...r,label:'Requests access',request:true});
       for(const p of peers)if(!records.has(p.owner || 'Unassigned'))records.set(p.owner || 'Unassigned',{email:p.owner || 'Unassigned',label:'Existing devices'});
       const rows=[...records.values()].sort((a,b)=>Number(!!b.request)-Number(!!a.request)||a.email.localeCompare(b.email));
       const box=document.getElementById('members-list');box.replaceChildren();
@@ -949,9 +981,8 @@
         head.appendChild(th);
       }
       const body=table.createTBody();wrap.appendChild(table);box.appendChild(wrap);
-      if(!rows.length){const cell=body.insertRow().insertCell();cell.colSpan=5;cell.textContent='No members or requests yet.';}
+      if(!peers.length){const cell=body.insertRow().insertCell();cell.colSpan=5;cell.textContent='No devices registered yet.';}
       const deviceRows=peers.map(device=>({device,user:records.get(device.owner || 'Unassigned')})).sort((a,b)=>a.device.name.localeCompare(b.device.name));
-      for(const user of rows)if(!peers.some(p=>(p.owner || 'Unassigned')===user.email))deviceRows.push({user,device:null});
       for(const {user,device} of deviceRows) {
         const tr=body.insertRow();
         const cell=tr.insertCell();cell.dataset.label='Device';cell.dataset.sortValue=device?.name || '';
@@ -987,7 +1018,7 @@
 
       }
       if(rows.length)sortAdminTable(table,adminSort.column);
-    }catch(e){document.getElementById('member-status').textContent=e.message;}
+    }catch(e){document.getElementById('member-status').textContent=e.message;document.getElementById('requests-error').textContent=e.message;}
   }
   document.getElementById('create-invite').addEventListener('click',async()=>{
     const button=document.getElementById('create-invite');button.disabled=true;
