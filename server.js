@@ -339,7 +339,7 @@ app.post('/api/access/request',auth,route(async(req,res)=>{
 app.get('/api/admin/users', auth, adminOnly, route(async (req,res)=>res.json(await access.summary())));
 app.post('/api/admin/invitations', auth, adminOnly, route(async (req,res)=>{
   const invitation=await access.invite(req.body.email);
-  if(req.body.sendEmail===true) {
+  if(req.body.sendEmail!==false) {
     try {await require('./lib/smtp').sendInvitation(invitation);invitation.emailStatus='sent';}
     catch {invitation.emailStatus='unconfirmed';}
   }

@@ -31,6 +31,7 @@ test('HTTP portal: sole admin invites friend, friend cannot administer, disable 
  assert.equal((await call('/api/peers',{cookie:admin.cookie,body:{name:'before-consent'}})).status,403);
  assert.equal((await call('/api/consent',{cookie:admin.cookie,body:{version:'2026-10-23',accept:true}})).status,200);
  const invited=await call('/api/admin/invitations',{cookie:admin.cookie,body:{email:'friend@example.com'}});assert.equal(invited.status,201);const invitation=await invited.json();
+ assert.equal(invitation.emailStatus,'sent');assert.equal(invitationMails[0].email,'friend@example.com');
  const stranger=await login('stranger@example.com');assert.equal(stranger.response.status,302);
  const strangerMe=await (await call('/api/me',{cookie:stranger.cookie})).json();assert.equal(strangerMe.vpnAccess,'not_granted');
  const request=await call('/api/access/request',{cookie:stranger.cookie,body:{}});assert.equal(request.status,200);assert.equal((await request.json()).emailStatus,'sent');
@@ -40,7 +41,9 @@ test('HTTP portal: sole admin invites friend, friend cannot administer, disable 
  assert.equal((await call('/api/peers',{cookie:stranger.cookie,body:{name:'not-approved'}})).status,403);
  assert.equal((await call('/api/extension/pair/complete',{cookie:stranger.cookie,body:{deviceCode:'d'.repeat(43),verifier:'v'.repeat(43)}})).status,403);
  const grant=await (await call('/api/admin/invitations',{cookie:admin.cookie,body:{email:'stranger@example.com',sendEmail:true}})).json();
- assert.equal(invitationMails.length,1);assert.equal(invitationMails[0].email,'stranger@example.com');
+ assert.equal(invitationMails.length,2);assert.equal(invitationMails[1].email,'stranger@example.com');
+ const copyOnly=await (await call('/api/admin/invitations',{cookie:admin.cookie,body:{email:'copy-only@example.com',sendEmail:false}})).json();
+ assert.ok(copyOnly.code);assert.equal(copyOnly.emailStatus,undefined);assert.equal(invitationMails.length,2);
  assert.equal((await call('/api/access/redeem',{cookie:stranger.cookie,body:{code:grant.code}})).status,200);
  assert.equal((await (await call('/api/me',{cookie:stranger.cookie})).json()).vpnAccess,'granted');
  const friend=await login('friend@example.com',invitation.code);assert.equal(friend.response.status,302);
