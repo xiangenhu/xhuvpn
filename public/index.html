@@ -331,6 +331,19 @@
       <button class="btn-primary" id="add-btn" onclick="addPeer()">2. Create my profile</button>
     </div>
     <div id="add-msg" role="status" aria-live="polite" tabindex="-1"></div>
+    <section id="profile-problem" class="card" hidden>
+      <h3>Profile setup did not complete</h3>
+      <p><strong>No new file is ready to import.</strong> The message above stays on this page so you can read or copy it. Installing WireGuard does not create the profile.</p>
+      <p>Check <strong>My devices</strong> below first. If this device is listed, use its <strong>Download .conf</strong> link. If it is not listed, the server must finish creating it before a file can be downloaded.</p>
+      <p>If the message mentions server setup, connection or synchronization, the administrator needs to resolve that problem. Do not keep creating duplicate devices.</p>
+    </section>
+    <section id="profile-result" class="card" hidden>
+      <h3>Your profile file</h3>
+      <p id="profile-filename"></p>
+      <p><a class="btn-primary" id="profile-download">Download .conf</a></p>
+      <ol><li>Click the download link above. Choose a folder if asked, or look in your browser’s Downloads list.</li><li>Open WireGuard. Choose <strong>Add tunnel → Import tunnel(s) from file</strong> (or the import option on your device), then select this <strong>.conf</strong> file.</li><li>Select the imported tunnel and choose <strong>Activate</strong>.</li></ol>
+      <p><strong>These instructions and the download link stay here after you close the setup window.</strong> You can also download the file again from My devices.</p>
+    </section>
   </div>
 
   <div class="section">
@@ -375,8 +388,9 @@
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="profile-ready-title" aria-describedby="setup-instructions" tabindex="-1" id="profile-dialog">
     <h2 id="profile-ready-title">Your WireGuard profile is ready</h2>
     <h3 id="modal-title">Peer Config</h3>
+    <p><a class="btn-primary" id="modal-download">Download .conf</a></p>
     <p><strong>Keep this window open while you complete these steps. It stays here until you choose Close.</strong></p>
-    <ol id="profile-steps"><li><strong>Get the file.</strong> Find the <code>.conf</code> file in your Downloads folder, or use <strong>Download my profile</strong> below.</li><li><strong>Open WireGuard.</strong> Choose <strong>Add tunnel → Import tunnel(s) from file</strong>, then select that file.</li><li><strong>Activate.</strong> Select the imported tunnel and click <strong>Activate</strong>.</li></ol>
+    <ol id="profile-steps"><li><strong>Download the file.</strong> Click the download link above. Choose where to save it if asked. Otherwise open your browser’s Downloads list to find it.</li><li><strong>Open WireGuard.</strong> Choose <strong>Add tunnel → Import tunnel(s) from file</strong>, then select that file.</li><li><strong>Activate.</strong> Select the imported tunnel and click <strong>Activate</strong>.</li></ol>
     <p id="setup-instructions"></p>
     <p><a href="https://www.wireguard.com/install/" target="_blank" rel="noopener">Install the official WireGuard app</a>. Keep this profile private and use it on one device.</p>
     <div class="modal-qr-section">
@@ -564,6 +578,13 @@
       const info=document.createElement('div'); info.className='peer-info';
       info.textContent=p.name + ' · ' + p.ip;
       row.append(info);
+      if(p.hasConfig) {
+        const link=document.createElement('a');link.className='btn-primary';
+        link.href=`/api/peers/${encodeURIComponent(p.name)}/config`;link.download=p.name+'.conf';
+        link.textContent='Download .conf';row.append(link);
+      } else if(p.hasConfig===false) {
+        const note=document.createElement('span');note.textContent='Imported device: use its original profile file.';row.append(note);
+      }
       for (const [label,action] of [['Setup / download',()=>viewConfig(p.name)],['Check connection',()=>checkConnection(p.name)],['Remove',()=>removePeer(p.name)]]) {
         const button=document.createElement('button');button.textContent=label;button.className='btn-muted';button.addEventListener('click',action);row.append(button);
       }
@@ -579,6 +600,8 @@
     const btn = document.getElementById('add-btn');
     if(btn.disabled) return;
     if (!name) {msgEl.textContent='Enter a name for this device, then click Create my profile.';msgEl.focus();return;}
+    document.getElementById('profile-problem').hidden=true;
+    document.getElementById('profile-result').hidden=true;
     btn.disabled = true; btn.textContent = 'Checking server and registering device…';
     msgEl.textContent='Creating your WireGuard profile: connecting to the VPN machine and checking setup. This can take up to 90 seconds. Please keep this page open.';
     msgEl.scrollIntoView({block:'nearest',behavior:'smooth'});
@@ -591,14 +614,12 @@
       msgEl.textContent = `Device "${name}" created at ${data.ip}`;
       suggestDeviceName();
       showModal(data.name, data.config, data.qr);
-      if(devicePlatform.value!=='mobile') {
-        downloadConfig();
-        msgEl.textContent=`Profile created. Your ${data.name}.conf download has started. If it does not appear in Downloads, use Download my profile in the setup window.`;
-      }
+      msgEl.textContent=`Profile created: ${data.name}.conf. Click Download in the setup window or in Your profile file below to save it. Then import that file into WireGuard. These instructions stay on the page.`;
     } catch(e) {
       msgEl.textContent=controller.signal.aborted
         ? 'Profile creation took too long. Check My devices below before trying again: the profile may already have been saved. Use Setup / download if it appears there.'
         : e.message;
+      document.getElementById('profile-problem').hidden=false;
       msgEl.focus();msgEl.scrollIntoView({block:'center',behavior:'smooth'});
     }
     finally {clearTimeout(timer);btn.disabled=false;btn.textContent='2. Create my profile';loadAll();}
@@ -609,7 +630,11 @@
       const res=await apiFetch(`/api/peers/${encodeURIComponent(name)}/config`,{headers:{Accept:'application/json'}});
       const data=await res.json();if(!res.ok) throw Error(data.error || 'Unable to download configuration');
       showModal(name,data.config,data.qr);
-    }catch(e){alert(e.message);}
+    }catch(e){
+      const msg=document.getElementById('add-msg');msg.textContent=e.message;
+      document.getElementById('profile-problem').hidden=false;
+      msg.focus();msg.scrollIntoView({block:'center',behavior:'smooth'});
+    }
   }
 
   async function removePeer(name) {
@@ -623,6 +648,14 @@
   // ── Modal ──────────────────────────────────────────────────────────
 
   function showModal(name, config, qr) {
+    if(typeof config!=='string' || !config.includes('[Interface]'))throw Error('No downloadable profile was returned. Check My devices before creating another profile.');
+    const file=name+'.conf',href=`/api/peers/${encodeURIComponent(name)}/config`;
+    for(const id of ['profile-download','modal-download']) {
+      const link=document.getElementById(id);link.href=href;link.download=file;link.textContent='Download '+file;
+    }
+    document.getElementById('profile-filename').textContent='File name: '+file;
+    document.getElementById('profile-result').hidden=false;
+    document.getElementById('profile-problem').hidden=true;
     const platform=document.getElementById('device-platform').value;
     document.getElementById('profile-steps').hidden=platform==='mobile' || platform==='linux';
     document.getElementById('setup-instructions').textContent=platform==='mobile'

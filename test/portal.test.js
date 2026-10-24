@@ -34,6 +34,11 @@ test('HTTP portal: sole admin invites friend, friend cannot administer, disable 
  const device=await call('/api/peers',{cookie:friend.cookie,body:{name:'friend-phone'}});assert.equal(device.status,201);
  const profile=await device.json();assert.match(profile.config,/Address\s*= 10\.8\.0\.2\/32/);assert.match(profile.config,/MTU\s*= 1380/);
  assert.match(profile.config,/Endpoint\s*= test:51820/);assert.ok(!profile.config.includes('vpn.example'));
+ const download=await call('/api/peers/friend-phone/config',{cookie:friend.cookie});
+ assert.equal(download.status,200);assert.equal(download.headers.get('content-disposition'),'attachment; filename="friend-phone.conf"');
+ assert.equal(download.headers.get('cache-control'),'no-store');assert.equal(await download.text(),profile.config);
+ const listed=await (await call('/api/peers',{cookie:friend.cookie})).json();
+ assert.equal(listed[0].hasConfig,true);assert.equal('privKey' in listed[0],false);
  assert.equal((await call('/api/admin/import-devices',{cookie:friend.cookie,body:{}})).status,403);
  assert.equal((await call('/api/admin/import-devices',{cookie:admin.cookie,body:{}})).status,200);
  const connection=await call('/api/peers/friend-phone/connection',{cookie:friend.cookie});assert.equal((await connection.json()).recentHandshake,false);

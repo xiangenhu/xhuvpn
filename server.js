@@ -30,7 +30,7 @@ const secrets = new SecretManagerServiceClient();
 
 app.use(express.json({limit:'16kb'}));
 app.use((req,res,next)=>{res.set('Referrer-Policy','no-referrer');next();});
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'),{setHeaders(res,file){if(file.endsWith('.html'))res.setHeader('Cache-Control','no-cache');}}));
 
 // ── Env Config ─────────────────────────────────────────────────────────────
 const GCS_BUCKET      = process.env.GCS_BUCKET;        // e.g. my-vpn-data
@@ -372,10 +372,11 @@ app.get('/api/status', auth, route(async (req, res) => {
 }));
 
 // GET /api/peers
+app.use('/api/peers',(req,res,next)=>{res.set('Cache-Control','no-store');next();});
 app.get('/api/peers', auth, route(async (req, res) => {
   const peers = await readPeers();
   const visible = filterPeersForUser(peers, req);
-  res.json(visible.map(({ privKey, ...safe }) => safe));
+  res.json(visible.map(({ privKey, ...safe }) => ({...safe,hasConfig:Boolean(privKey)})));
 }));
 
 // POST /api/peers  { name: "alice" }
