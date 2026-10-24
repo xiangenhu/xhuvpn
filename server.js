@@ -395,7 +395,6 @@ app.post('/api/peers', auth, requireConsent, route(async (req, res) => {
     if(state.users[owner]?.enabled===false) throw new AccessError(403,'User is disabled');
     if(owner!==req.user.email && !state.users[owner]?.enabled) throw new AccessError(400,'Choose an active invited user');
     if(state.peers.some(p=>p.name===name)) throw new AccessError(409,'Device name already exists');
-    if(req.authType==='user' && state.peers.filter(p=>p.owner===owner).length>=3) throw new AccessError(403,'Maximum 3 devices per user');
     preserveExistingDevices(state,inventory,ADMIN);
     const ip=nextClientIP(state.peers);
     state.peers.push({name,ip,pubKey,privKey,owner,createdAt:new Date().toISOString()});

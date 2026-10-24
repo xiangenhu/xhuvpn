@@ -63,6 +63,12 @@ test('HTTP portal: sole admin invites friend, friend cannot administer, disable 
  const connection=await call('/api/peers/friend-phone/connection',{cookie:friend.cookie});assert.equal((await connection.json()).recentHandshake,false);
  assert.equal((await call('/api/peers',{cookie:admin.cookie,body:{name:'owner-phone'}})).status,201);
  const friendsPeers=await (await call('/api/peers',{cookie:friend.cookie})).json();assert.equal(friendsPeers.length,1);assert.equal(friendsPeers[0].name,'friend-phone');assert.equal((await call('/api/peers/owner-phone/config',{cookie:friend.cookie})).status,403);
+ for(let n=0;n<3;n++) {
+  const additional=await call('/api/peers',{cookie:friend.cookie,body:{name:'friend-extra-'+n,owner:'xiangenhu@gmail.com'}});
+  assert.equal(additional.status,201);
+ }
+ const allFriendDevices=await (await call('/api/peers',{cookie:friend.cookie})).json();
+ assert.equal(allFriendDevices.length,4);assert.ok(allFriendDevices.every(p=>p.owner==='friend@example.com'));
  sshFails=true;
  const disabled=await call('/api/admin/users/disable',{cookie:admin.cookie,body:{email:'friend@example.com'}});assert.equal(disabled.status,503);assert.equal((await disabled.json()).needsReconcile,true);
  assert.equal((await call('/api/me',{cookie:friend.cookie})).status,403);

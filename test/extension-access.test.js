@@ -48,11 +48,12 @@ test('unconfigured or unhealthy gateway and anonymous request flooding do not is
  await assert.rejects(f.access.start(f.challenge,'Firefox','one'),e=>e.status===429);
  f.unready();await assert.rejects(f.access.start(f.challenge,'Firefox','two'),e=>e.status===503);
 });
-test('three-session quota, ten-minute request expiry and loss of approval are enforced atomically',async()=>{
+test('an approved account connects additional browsers while ten-minute requests still expire',async()=>{
  const f=fixture();
  for(let n=0;n<3;n++) {const p=await f.access.start(f.challenge,'Firefox','one');await f.access.approve(p.userCode,'friend@example.com');await f.access.exchange(p.deviceCode,f.verifier);}
  const fourth=await f.access.start(f.challenge,'Firefox','one');await f.access.approve(fourth.userCode,'friend@example.com');
- await assert.rejects(f.access.exchange(fourth.deviceCode,f.verifier),e=>e.status===409);
+ assert.equal((await f.access.exchange(fourth.deviceCode,f.verifier)).status,'connected');
+ assert.equal((await f.access.list('friend@example.com')).length,4);
  const pending=await f.access.start(f.challenge,'Firefox','one');f.advance(600001);
  await assert.rejects(f.access.info(pending.userCode),e=>e.status===404);
  await assert.rejects(f.access.exchange(pending.deviceCode,f.verifier),e=>e.status===400);

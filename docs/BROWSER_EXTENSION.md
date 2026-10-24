@@ -92,8 +92,7 @@ submission. This work does not create publisher accounts or accept store terms.
   read until an atomic single-use exchange creates the session.
 - Proxy credentials are random, per connection and eight-hour limited. Only
   hashes persist in private GCS state. No app client secret, gateway credential,
-  portal cookie or Google token is shipped to the extension. Each user can have
-  three active connections and revoke them in the portal.
+  portal cookie or Google token is shipped to the extension. There is no fixed per-account connection-count limit. Users can revoke their connections in the portal.
 - The extension keeps its short-lived connection credentials in extension-local
   storage (not sync) to survive background restarts. It supplies them only for
   proxy challenges from the configured exact host/port and cancels repeat failures.
