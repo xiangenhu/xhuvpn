@@ -309,6 +309,8 @@
     .admin-table td:first-child,.admin-table td:nth-child(2){min-width:180px}
     #app .admin-table button{white-space:nowrap;font-size:12px;min-height:40px}
     .admin-table .admin-email{margin-bottom:4px}
+    #app .admin-sort-button{background:transparent;color:inherit;padding:0;min-height:44px;font-weight:700;text-align:left}
+    #app .admin-sort-button:hover{color:var(--accent)}
   </style>
 </head>
 <body>
@@ -906,6 +908,25 @@
     if(!response.ok) throw Error(result.error || 'Request failed. Please retry.');
     return result;
   }
+  let adminSort={column:0,ascending:true};
+  function sortAdminTable(table,column,toggle=false){
+    if(toggle)adminSort={column,ascending:adminSort.column===column?!adminSort.ascending:true};
+    const {ascending}=adminSort;
+    const body=table.tBodies[0];
+    const rows=Array.from(body.rows);
+    rows.sort((a,b)=>{
+      const x=a.cells[column]?.dataset.sortValue || '';
+      const y=b.cells[column]?.dataset.sortValue || '';
+      return (ascending?1:-1)*x.localeCompare(y,undefined,{numeric:true,sensitivity:'base'});
+    });
+    for(const row of rows)body.appendChild(row);
+    for(const [index,th] of Array.from(table.tHead.rows[0].cells).entries()){
+      if(index>1)continue;
+      th.setAttribute('aria-sort',index===column?(ascending?'ascending':'descending'):'none');
+      const button=th.querySelector('button');
+      button.textContent=(index===0?'Device':'Owner & access')+(index===column?(ascending?' ↑':' ↓'):' ↕');
+    }
+  }
   async function loadMembers() {
     try {
       const data=await jsonRequest('/api/admin/users');
@@ -921,17 +942,22 @@
       const wrap=document.createElement('div');wrap.className='traffic-table-wrap';
       const table=document.createElement('table');table.className='traffic-table admin-table';
       const head=table.createTHead().insertRow();
-      for(const title of ['Device','Owner & access','Check connection','Revoke device','Owner access']){const th=document.createElement('th');th.scope='col';th.textContent=title;head.appendChild(th);}
+      for(const [index,title] of ['Device','Owner & access','Check connection','Revoke device','Owner access'].entries()){
+        const th=document.createElement('th');th.scope='col';
+        if(index<2){const button=document.createElement('button');button.type='button';button.className='admin-sort-button';button.textContent=title+' ↕';button.addEventListener('click',()=>sortAdminTable(table,index,true));th.appendChild(button);}
+        else th.textContent=title;
+        head.appendChild(th);
+      }
       const body=table.createTBody();wrap.appendChild(table);box.appendChild(wrap);
       if(!rows.length){const cell=body.insertRow().insertCell();cell.colSpan=5;cell.textContent='No members or requests yet.';}
       const deviceRows=peers.map(device=>({device,user:records.get(device.owner || 'Unassigned')})).sort((a,b)=>a.device.name.localeCompare(b.device.name));
       for(const user of rows)if(!peers.some(p=>(p.owner || 'Unassigned')===user.email))deviceRows.push({user,device:null});
       for(const {user,device} of deviceRows) {
         const tr=body.insertRow();
-        const cell=tr.insertCell();cell.dataset.label='Device';
+        const cell=tr.insertCell();cell.dataset.label='Device';cell.dataset.sortValue=device?.name || '';
         const name=document.createElement('strong');name.className='admin-email';name.textContent=device?device.name:'No device yet';cell.appendChild(name);
         const meta=document.createElement('small');meta.className='admin-delivery';meta.textContent=device?device.ip+(device.needsRepair?' · Needs replacement':''):user.request?'Access requested':user.label;cell.appendChild(meta);
-        const identity=tr.insertCell();identity.dataset.label='Owner & access';
+        const identity=tr.insertCell();identity.dataset.label='Owner & access';identity.dataset.sortValue=user.email;
         const email=document.createElement('strong');email.className='admin-email';email.textContent=user.email;identity.appendChild(email);
         const status=document.createElement('span');status.className='admin-access '+(user.request?'pending':user.label==='Active'?'active':'');status.textContent=user.label;identity.appendChild(status);
         if(user.emailStatus){const delivery=document.createElement('small');delivery.className='admin-delivery';delivery.textContent=user.emailStatus==='sent'?'Invitation email accepted':'Email unconfirmed: '+(user.emailError || 'Check gateway records');identity.appendChild(delivery);}
@@ -960,6 +986,7 @@
         }
 
       }
+      if(rows.length)sortAdminTable(table,adminSort.column);
     }catch(e){document.getElementById('member-status').textContent=e.message;}
   }
   document.getElementById('create-invite').addEventListener('click',async()=>{
