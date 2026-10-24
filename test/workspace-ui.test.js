@@ -4,7 +4,7 @@ const html=fs.readFileSync(require.resolve('../public/index.html'),'utf8');
 const script=html.match(/<script>([\s\S]*?)<\/script>/)[1];
 const source=script.slice(script.indexOf('  function selectWorkspace('),script.indexOf("  let currentConfig"));
 function workspace(isAdmin){
- const elements={};for(const id of ['personal-workspace','management-workspace','personal-workspace-button','management-workspace-button'])elements[id]={setAttribute(key,value){this[key]=value;}};
+ const elements={};for(const id of ['personal-workspace','management-workspace','traffic-section','traffic-workspace-button','personal-workspace-button','management-workspace-button'])elements[id]={setAttribute(key,value){this[key]=value;}};
  const select=vm.runInNewContext(source+';selectWorkspace',{isAdmin,document:{getElementById:id=>elements[id]}});
  return {elements,select};
 }
