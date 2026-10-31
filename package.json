@@ -4,10 +4,11 @@
   "description": "WireGuard VPN manager — Cloud Run + GCS + GCE VM",
   "main": "server.js",
   "scripts": {
+    "test:oauth-infrastructure": "node --test oauth-infrastructure.test.mjs",
     "build:extensions": "node scripts/build-extensions.js",
     "test:proxy": "npm --prefix proxy test",
-    "start": "node server.js",
-    "dev": "nodemon server.js",
+    "start": "node --import ./oauth-infrastructure.mjs server.js",
+    "dev": "nodemon --exec \"node --import ./oauth-infrastructure.mjs\" server.js",
     "test": "node --test test/*.test.js"
   },
   "dependencies": {
@@ -26,3 +27,4 @@
     "node": ">=20.0.0"
   }
 }
+

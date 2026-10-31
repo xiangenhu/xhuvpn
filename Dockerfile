@@ -28,4 +28,6 @@ EXPOSE 8080
 RUN useradd -m appuser
 USER appuser
 
-CMD ["node", "server.js"]
+COPY oauth-infrastructure.mjs ./oauth-infrastructure.mjs
+CMD ["node", "--import", "./oauth-infrastructure.mjs", "server.js"]
+
