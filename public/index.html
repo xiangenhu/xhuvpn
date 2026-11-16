@@ -340,6 +340,31 @@
     <input id="signin-password" type="password" autocomplete="current-password" required>
     <button class="btn-primary" type="submit">Sign in with email</button>
   </form>
+  <details id="password-reset"><summary>Forgot password?</summary>
+    <p class="subtitle">Reset your shared SKO account password using a code sent to your email. This updates the password used by other SKO apps too. For Google sign-in, recover your password through Google.</p>
+    <form id="reset-request-form">
+      <label for="reset-email">SKO account email</label>
+      <input id="reset-email" type="email" autocomplete="username" maxlength="254" required>
+      <button class="btn-primary" type="submit">Send reset code</button>
+    </form>
+    <p id="reset-account" class="subtitle" hidden></p>
+    <form id="reset-verify-form" hidden>
+      <label for="reset-code">Six-digit password reset code</label>
+      <input id="reset-code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required>
+      <button class="btn-primary" type="submit">Verify reset code</button>
+      <button class="btn-muted" id="resend-reset-code" type="button">Resend reset code</button>
+    </form>
+    <form id="reset-password-form" hidden>
+      <label for="reset-new-password">New password (at least 8 characters)</label>
+      <input id="reset-new-password" type="password" autocomplete="new-password" minlength="8" required>
+      <label for="reset-confirm-password">Confirm new password</label>
+      <input id="reset-confirm-password" type="password" autocomplete="new-password" minlength="8" required>
+      <p class="subtitle">Maximum 72 UTF-8 bytes. Your password can include spaces and Unicode characters.</p>
+      <button class="btn-primary" type="submit">Save new password</button>
+    </form>
+    <button class="btn-muted" id="restart-password-reset" type="button" hidden>Start again / use another email</button>
+    <p id="reset-msg" role="status" aria-live="polite"></p>
+  </details>
   <details id="email-registration"><summary>Create an account with your email</summary>
     <p class="subtitle">Choose a password, then verify your email using the code sent to your inbox. VPN access requires Xiangen’s approval.</p>
     <form id="registration-form">
@@ -913,7 +938,7 @@
     try {result=await response.json();}
     catch {throw Error(response.status===403 ? 'This request could not be completed. Refresh the page and try again.' : 'The service is temporarily unavailable. Please try again later.');}
     if(!result || typeof result!=='object') throw Error('The service returned an unexpected response. Please try again later.');
-    if(!response.ok) throw Error(result.error || 'Request failed. Please retry.');
+    if(!response.ok) throw Object.assign(Error(result.error || 'Request failed. Please retry.'),{restartReset:result.restartReset===true});
     return result;
   }
   function renderNewRequests(data){
@@ -1038,6 +1063,76 @@
     const button=document.getElementById('retry-sync');button.disabled=true;
     try{await jsonRequest('/api/admin/reconcile',{});document.getElementById('member-status').textContent='VPN configuration synchronized.';}
     catch(e){document.getElementById('member-status').textContent=e.message;}finally{button.disabled=false;loadAll();}
+  });
+
+  let resetEmail='',resetBusy=false;
+  function setResetStage(stage) {
+    for(const name of ['request','verify','password']) document.getElementById('reset-'+name+'-form').hidden=stage!==name;
+    document.getElementById('reset-account').hidden=stage==='request';
+    document.getElementById('reset-account').textContent=resetEmail?'Resetting password for '+resetEmail:'';
+    document.getElementById('restart-password-reset').hidden=stage==='request';
+    for(const id of ['reset-code','reset-new-password','reset-confirm-password']) document.getElementById(id).value='';
+    document.getElementById(stage==='request'?'reset-email':stage==='verify'?'reset-code':'reset-new-password').focus();
+  }
+  async function passwordResetAction(action,body,progress) {
+    if(resetBusy) return null;
+    resetBusy=true;
+    const controls=document.getElementById('password-reset').querySelectorAll('input,button');
+    controls.forEach(control=>control.disabled=true);
+    document.getElementById('reset-msg').textContent=progress;
+    let focusAfter;
+    try {
+      const result=await jsonRequest('/api/auth/email/'+action,body);
+      document.getElementById('reset-msg').textContent=result.message;
+      return result;
+    } catch(error) {
+      if(error.restartReset) {setResetStage('request');focusAfter=document.getElementById('reset-email');}
+      document.getElementById('reset-msg').textContent=error.message;return null;
+    } finally {
+      delete body.newPassword;delete body.code;
+      for(const id of ['reset-new-password','reset-confirm-password']) document.getElementById(id).value='';
+      controls.forEach(control=>control.disabled=false);resetBusy=false;
+      if(focusAfter) focusAfter.focus();
+    }
+  }
+  document.getElementById('password-reset').addEventListener('toggle',event=>{
+    if(event.currentTarget.open) {
+      document.getElementById('email-registration').open=false;
+      if(!resetEmail) document.getElementById('reset-email').value=document.getElementById('signin-email').value;
+    } else {
+      for(const id of ['reset-new-password','reset-confirm-password']) document.getElementById(id).value='';
+    }
+  });
+  document.getElementById('reset-request-form').addEventListener('submit',async event=>{
+    event.preventDefault();if(resetBusy) return;
+    const email=document.getElementById('reset-email').value.trim().toLowerCase();
+    if(await passwordResetAction('forgot-password',{email},'Sending your password reset code…')) {resetEmail=email;setResetStage('verify');}
+  });
+  document.getElementById('resend-reset-code').addEventListener('click',async()=>{
+    if(await passwordResetAction('forgot-password',{email:resetEmail},'Requesting a new reset code…')) setResetStage('verify');
+  });
+  document.getElementById('reset-verify-form').addEventListener('submit',async event=>{
+    event.preventDefault();if(resetBusy) return;
+    const result=await passwordResetAction('verify-reset-code',{email:resetEmail,code:document.getElementById('reset-code').value.trim()},'Checking your reset code…');
+    document.getElementById('reset-code').value='';
+    if(result) setResetStage('password');
+  });
+  document.getElementById('reset-password-form').addEventListener('submit',async event=>{
+    event.preventDefault();if(resetBusy) return;
+    const password=document.getElementById('reset-new-password'),confirmation=document.getElementById('reset-confirm-password');
+    if(password.value!==confirmation.value) {document.getElementById('reset-msg').textContent='The passwords do not match.';confirmation.focus();return;}
+    if(Array.from(password.value).length<8 || new TextEncoder().encode(password.value).length>72) {document.getElementById('reset-msg').textContent='Use at least 8 characters and no more than 72 UTF-8 bytes.';password.focus();return;}
+    const result=await passwordResetAction('reset-password',{email:resetEmail,newPassword:password.value},'Saving your new password…');
+    if(result) {
+      document.getElementById('signin-email').value=resetEmail;
+      document.getElementById('signin-password').value='';
+      setResetStage('request');resetEmail='';document.getElementById('password-reset').open=false;
+      showMsg('login-msg','ok',result.message);document.getElementById('signin-password').focus();
+    }
+  });
+  document.getElementById('restart-password-reset').addEventListener('click',()=>{
+    if(resetBusy) return;
+    resetEmail='';setResetStage('request');document.getElementById('reset-msg').textContent='Enter your SKO email to request a new code.';
   });
 
   let registrationEmail='';

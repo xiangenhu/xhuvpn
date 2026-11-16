@@ -4,6 +4,38 @@ Only the verified identity `xiangenhu@gmail.com` can administer this VPN manager
 The restriction is hard-coded and enforced server-side on every admin route; invitation codes cannot grant administrator access.
 There is no API-key or browser bearer-token fallback. Email/password authentication is performed by the fixed SKO proxy; the VPN app does not maintain passwords.
 
+## Forgot password
+
+Choose **Forgot password?** beneath email sign-in, enter the SKO account email,
+verify the six-digit email code, then enter and confirm a new password. Codes and
+verified reset sessions each expire after 15 minutes. The new password must have
+at least eight characters and fit within bcrypt's 72 UTF-8-byte limit.
+This updates the shared SKO password used by other SKO apps. Google passwords
+must be recovered through Google. Users sign in normally after the update;
+existing VPN approval and device ownership are preserved.
+
+The VPN routes `/api/auth/email/forgot-password`, `verify-reset-code`, and
+`reset-password` call the fixed gateway's `/user/forgot-password`, `/user/verify`,
+and `/user/reset-password` endpoints. The gateway reset token is encrypted in a
+15-minute GCS record. Only an opaque HttpOnly, Secure, SameSite reset cookie
+reaches the browser. Atomic record consumption prevents concurrent use or replay
+through this portal. Passwords and reset tokens are never returned in JSON or
+persisted in browser storage. All three routes require the configured origin
+and the application request header.
+
+Durable per-email quotas permit three code requests, five code verification
+attempts, and five completion attempts per 15-minute window, across Cloud Run
+instances. Resending shares the code-request quota. Unknown emails receive the
+same code-request response. An uncertain password update consumes the reset
+session and asks the user to sign in or request a new code; it is not retried.
+Existing portal sessions on other devices retain their normal expiry; this
+feature does not rotate gateway tokens or revoke WireGuard configurations.
+
+No new secrets or environment settings are needed beyond working email sign-in
+and GCS access. Deploy the updated VPN service to expose the feature. Automated
+tests use mocked gateway responses; delivery and a real password change must be
+checked with an account whose owner requests the reset.
+
 ## Existing SKO email accounts and SMTP
 
 The login page offers **Sign in with email**, using `POST https://oauth.skoonline.org/user/login` from the VPN backend. It requires a successful proxy response containing a nonempty token, the exact requested email and an explicit true verification assertion (`emailVerified`, `email_verified`, or `verified`), with no false assertion. Passwords and proxy tokens are not persisted or returned to the browser. The app issues its encrypted, eight-hour session as usual. Five attempts per email per 15-minute window are enforced using atomic GCS creates across instances.
