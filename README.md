@@ -1,4 +1,35 @@
-> **Current connection method:** WireGuard only. Verified email sign-in determines VPN access; approved users download a private configuration and import it into WireGuard. Approval emails include detailed setup instructions. Browser extension and remote-browser choices have been removed from the user interface. Earlier extension documentation is retained as implementation history.
+> **Current connection protocol:** WireGuard. Verified email sign-in determines VPN access; approved users download a private profile and use a compatible client. The signed-in portal includes device-specific instructions for WireGuard, Shadowrocket, Surge, WG Tunnel and NetworkManager, plus guidance for routing WeChat/mainland traffic directly. Browser extension and remote-browser choices have been removed from the user interface. Earlier extension documentation is retained as implementation history.
+
+## Client setup in the portal
+
+After signing in and accepting the research notice, select the physical device and
+client in **Choose your device and client**. The list only offers compatible
+device/client combinations. Use **Prepare my configuration file** for a new device,
+or open that device's existing saved profile when switching clients. Downloads
+remain authenticated and owner-scoped; setup adds no public subscription URL and
+does not change the VPN server or its peers.
+
+| Client | Devices covered by the guide | Setup |
+|---|---|---|
+| WireGuard | iPhone/iPad, Android, Windows, Mac, Linux | Import `.conf`; mobile QR import |
+| Shadowrocket | iPhone/iPad | Add a WireGuard server using the profile values; Config mode for routing rules |
+| Surge | iPhone/iPad, Mac | Create a WireGuard policy and matching section using the linked Surge manual |
+| WG Tunnel | Android phone/tablet, Android TV | Import `.conf`; optional WeChat app exclusion |
+| NetworkManager | Linux | Import WireGuard in Network Settings or with `nmcli` |
+
+Shadowrocket/Surge instructions include the profile-field mapping and starting
+DIRECT rules for WeChat/Tencent domains and China GeoIP, before the final overseas
+proxy rule. Direct mainland destinations may need local DNS. These instructions
+must be applied in the client; the portal does not remotely set routing rules.
+The downloaded standard WireGuard profile continues to use full-tunnel routes.
+Domain lists are not exhaustive, and a successful handshake does not establish
+working browsing, DNS or WeChat calls. Verify these on the actual device/network.
+
+Official client references: [WireGuard](https://www.wireguard.com/install/),
+[Shadowrocket App Store listing](https://apps.apple.com/app/shadowrocket/id932747118),
+[Surge WireGuard manual](https://manual.nssurge.com/policies/wireguard.html),
+[WG Tunnel Android guide](https://wgtunnel.com/docs/android/tunnels/), and
+[NetworkManager nmcli manual](https://networkmanager.dev/docs/api/latest/nmcli.html).
 
 # WireGuard VPN Manager — Cloud Run Edition
 ### Node.js · Cloud Run · Google Cloud Storage · GCE VM (WireGuard)

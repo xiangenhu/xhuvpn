@@ -47,6 +47,7 @@ test('profile instructions remain open until explicit dismissal and focus follow
  const modalSource=script.slice(script.indexOf('  function showModal('),script.indexOf('  async function importDevices('));
  const modal=vm.runInNewContext(modalSource+';({showModal,closeModal})',{
   document:{getElementById:id=>elements[id]},currentConfig:'',currentPeerName:'',
+  applyClientInstructions:()=>{},
   setTimeout:()=>{throw Error('Profile instructions must not auto-dismiss');}
  });
  modal.showModal('My-Windows','[Interface]','qr');

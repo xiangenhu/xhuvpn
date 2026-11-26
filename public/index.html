@@ -84,6 +84,16 @@
     #app .research-reminder{font-size:12px;color:#96adbf;border-top:1px solid #30465b;padding-top:14px}
     #app [role=status]:not(:empty){padding:12px 14px;border-radius:10px;background:#192d3e;color:#d4e5ef;margin-top:12px}
     #app .badge{padding:6px 10px;white-space:nowrap}
+    .client-selectors{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+    #app .client-selectors select{width:100%;min-width:0}
+    .client-table-wrap{overflow-x:auto}
+    .client-table{width:100%;border-collapse:collapse;font-size:13px;line-height:1.6}
+    .client-table th,.client-table td{text-align:left;padding:12px;border-bottom:1px solid #304357;vertical-align:top}
+    .client-table th{color:#c9e4dc}
+    #app .client-steps{padding-left:24px;color:#b2c2d3;font-size:14px;line-height:1.8}
+    #app .client-steps li{margin:10px 0}
+    #app .routing-note{border-left:3px solid var(--accent);padding:4px 16px;margin:20px 0;background:#112d30}
+    @media(max-width:600px){.client-selectors{grid-template-columns:1fr}.client-table th,.client-table td{padding:10px 8px}}
     @media(max-width:600px){#app .section{padding:20px}#app header .user-info{width:100%;margin-left:0!important;order:3}#app select{width:100%;min-width:0}.invite-controls{flex-direction:column}.invite-controls input{width:100%;min-width:0}#app .peer-row button{flex:1}#app .row input{width:100%;flex-basis:100%}}
 
     /* Access approval */
@@ -437,20 +447,54 @@
     <button type="button" id="management-workspace-button" class="btn-muted" aria-pressed="false" aria-controls="management-workspace" onclick="selectWorkspace('management')" hidden>Administration</button>
   </nav>
   <section id="personal-workspace" aria-labelledby="personal-title">
-  <div class="workspace-intro"><h2 id="personal-title">科学上网：Hu Lab exclusive network</h2><p>Sign in with your approved email account, download your WireGuard configuration, and connect.</p><p id="personal-identity"></p></div>
+  <div class="workspace-intro"><h2 id="personal-title">科学上网：Hu Lab exclusive network</h2><p>Choose a client for your device, get your personal connection profile, and connect to the Hu Lab server.</p><p id="personal-identity"></p></div>
   <section class="section">
     <h2>Start here</h2>
-    <p>Open WireGuard, download your configuration file below, then import it and click Activate. You only need to import the file once.</p>
+    <p>Already use Shadowrocket? Select it below and add the profile issued by this portal. For other devices, choose a compatible client and follow its setup steps.</p>
     <p class="research-reminder">Created by Xiangen Hu for colleagues and research teams. Research use only. Do not distribute access without permission. You are responsible for your internet activity and improper use.</p>
   </section>
+  <section class="section" id="client-guide" aria-labelledby="client-guide-title">
+    <h2 id="client-guide-title">Choose your device and client</h2>
+    <div class="client-selectors">
+      <div><label for="guide-device">Device you want to connect</label><select id="guide-device"><option value="ios">iPhone / iPad</option><option value="android">Android phone / tablet</option><option value="windows">Windows PC</option><option value="mac">Mac</option><option value="linux">Linux computer</option><option value="android-tv">Android TV</option></select></div>
+      <div><label for="guide-client">VPN client</label><select id="guide-client"><option value="wireguard">WireGuard</option></select></div>
+    </div>
+    <p id="client-summary" aria-live="polite"></p>
+    <p><a id="client-download" href="https://www.wireguard.com/install/" target="_blank" rel="noopener">Get WireGuard</a> · <a id="client-docs" href="https://www.wireguard.com/quickstart/" target="_blank" rel="noopener">Client documentation</a></p>
+    <ol id="client-steps" class="client-steps"></ol>
+    <div class="routing-note" id="client-routing" hidden>
+      <h3>WeChat and mainland services / 微信与国内服务</h3>
+      <p>Use rules so mainland services connect directly and overseas traffic uses your Hu Lab connection. In Shadowrocket choose <strong>Global Routing → Config</strong>, and select the Hu Lab WireGuard server on Home. In Surge use <strong>Rule</strong> mode and select the Hu Lab WireGuard policy for overseas traffic.</p>
+      <p>In your active rules configuration, put <strong>DIRECT</strong> domain-suffix rules for <strong>qq.com, wechat.com, weixinbridge.com, qpic.cn, qlogo.cn, servicewechat.com, wechatpay.com and tenpay.com</strong> before the final proxy rule. Add a <strong>China / CN GeoIP → DIRECT</strong> rule before the final rule too. Use local/system DNS for direct mainland destinations; use the client's DNS routing options if available.</p>
+      <p>These are starting rules, not a complete list of WeChat destinations. Test text messages, pictures, voice/video calls and an overseas website. If only one feature fails, inspect the client's connection log on your own device and add a DIRECT rule for the affected destination. Changing rules here will not change settings in the app automatically.</p>
+    </div>
+    <details id="client-field-guide" hidden><summary>How this portal's profile maps to client settings</summary>
+      <p>Choose <strong>WireGuard</strong> as the server type. Download or open your profile below and copy each value exactly. Keep the private key private. Labels may vary with app version.</p>
+      <div class="client-table-wrap"><table class="client-table"><thead><tr><th scope="col">In your .conf file</th><th scope="col">Client setting</th></tr></thead><tbody>
+        <tr><td>[Interface] PrivateKey</td><td>Your interface private key</td></tr><tr><td>[Interface] Address</td><td>Local/interface IP address, including /32</td></tr><tr><td>[Interface] DNS</td><td>Tunnel DNS servers; direct mainland traffic may need local DNS</td></tr><tr><td>[Interface] MTU</td><td>MTU (use the value in your profile)</td></tr><tr><td>[Peer] PublicKey</td><td>Server / peer public key</td></tr><tr><td>[Peer] Endpoint</td><td>Server host and UDP port (split into separate fields if requested)</td></tr><tr><td>[Peer] AllowedIPs</td><td>Allowed IP ranges; client routing rules decide which traffic enters the tunnel</td></tr><tr><td>[Peer] PersistentKeepalive</td><td>Keepalive interval in seconds</td></tr>
+      </tbody></table></div>
+      <p>Leave preshared key and obfuscation fields empty unless your issued profile explicitly includes them. This server currently uses standard WireGuard. Your previous server's subscription, password and keys cannot be reused here.</p>
+    </details>
+    <details><summary>All clients and supported device types</summary>
+      <div class="client-table-wrap"><table class="client-table"><thead><tr><th scope="col">Client</th><th scope="col">Device types</th><th scope="col">Use with this server</th></tr></thead><tbody>
+        <tr><td><a href="https://www.wireguard.com/install/" target="_blank" rel="noopener">WireGuard</a></td><td>iPhone, iPad, Android phone/tablet, Windows, Mac, Linux</td><td>Simple setup: import the portal's .conf file; mobile apps also support QR codes. The supplied profile sends all traffic through the VPN.</td></tr>
+        <tr><td><a href="https://apps.apple.com/app/shadowrocket/id932747118" target="_blank" rel="noopener">Shadowrocket / 小火箭</a></td><td>iPhone / iPad</td><td>Add a WireGuard server with your portal profile. Domain and IP rules can send mainland services directly. Paid app; store availability varies.</td></tr>
+        <tr><td><a href="https://nssurge.com/" target="_blank" rel="noopener">Surge</a></td><td>iPhone / iPad / Mac</td><td>Configure a WireGuard policy using your portal profile, then select it in rules. Paid features/licensing may apply.</td></tr>
+        <tr><td><a href="https://wgtunnel.com/" target="_blank" rel="noopener">WG Tunnel</a></td><td>Android phone / tablet / Android TV</td><td>Import the .conf file. On Android, app exclusions can keep WeChat outside the tunnel.</td></tr>
+        <tr><td><a href="https://networkmanager.dev/docs/api/latest/nmcli.html" target="_blank" rel="noopener">NetworkManager</a></td><td>Linux computers</td><td>Import a WireGuard profile through Network Settings or nmcli.</td></tr>
+      </tbody></table></div>
+      <p>These clients connect using this server's WireGuard protocol. OpenVPN, Shadowsocks and Trojan profiles would require a matching server service. A client change alone does not guarantee mainland connectivity.</p>
+    </details>
+    <p>Create one profile for each physical device. When switching clients on the same device, turn off the previous client first. Keep downloaded files and QR codes private.</p>
+  </section>
   <div id="wireguard-panel"><div class="section">
-    <h2>Connect with WireGuard</h2>
-    <h3>1. Open WireGuard</h3>
-    <p>If WireGuard is already installed, open it and leave it open. Otherwise <a href="https://www.wireguard.com/install/" target="_blank" rel="noopener">download and install WireGuard</a>, then return to this page.</p>
+    <h2 id="connect-client-title">Connect with WireGuard</h2>
+    <h3 id="open-client-title">1. Open WireGuard</h3>
+    <p id="open-client-instructions">Open your selected client using the download link and setup guide above, then return here to get your profile.</p>
     <p><button class="btn-primary" id="wireguard-installed" type="button">WireGuard is open — continue</button></p>
     <div id="profile-create-step" hidden>
     <h3 tabindex="-1" id="prepare-profile-title">2. Get your configuration file</h3>
-    <p>Your access is already approved. Click below to get the file WireGuard needs. You do not need to register or name anything.</p>
+    <p>Your access is already approved. Prepare a personal WireGuard profile for your selected client. If you already have a profile for this device, open it under <strong>Download a previous WireGuard file</strong> below.</p>
     <div hidden>
     <label for="device-platform">Device type</label>
     <select id="device-platform"><option value="windows">Windows</option><option value="mac">Mac</option><option value="mobile">iPhone / iPad / Android</option><option value="linux">Linux</option></select>
@@ -469,10 +513,11 @@
       <p id="profile-filename"></p>
       <p><a class="btn-primary" id="profile-download">Download .conf</a></p>
       <p>Click the download button above. The file ends in <strong>.conf</strong>. Save it in <strong>Downloads</strong> if your browser asks where to save it.</p>
-      <h3>3. Load the file into WireGuard</h3>
+      <h3 id="import-client-title">3. Load the file into WireGuard</h3>
       <p id="inline-import-instructions">In WireGuard, click <strong>Import tunnel(s) from file</strong>. If you do not see that button, choose <strong>Add tunnel → Import tunnel(s) from file</strong>. Select the file named above from Downloads, then click Open.</p>
       <details><summary>I cannot find the downloaded file</summary><p>Open your browser’s Downloads list (Ctrl+J in most Windows browsers). Find the file named above and choose Show in folder. You can use the download button again to save another copy.</p></details>
-      <h3>4. Turn on the connection</h3><p>In WireGuard, select your imported configuration and click <strong>Activate</strong>. The website does not turn it on for you.</p>
+      <h3>4. Turn on the connection</h3><p id="activate-client-instructions">In WireGuard, select your imported configuration and click Activate. The website does not turn it on for you.</p>
+      <p><a href="#client-guide">Review your selected client's setup and routing instructions</a></p>
       <p><button class="btn-muted" type="button" onclick="checkConnection(inlinePeerName)">Check my connection</button></p><p id="inline-connection-result" role="status"></p>
       <p><strong>These instructions and the download link stay here after you close the setup window.</strong> You can also download the file again from Download a previous WireGuard file.</p>
     </section>
@@ -481,7 +526,7 @@
 
   <div class="section">
     <details><summary>Download a previous WireGuard file</summary>
-    <p>Use a saved file if you need to import it again. For everyday use, turn the VPN on or off in WireGuard.</p>
+    <p>Reuse this device's profile when switching clients. Open its setup window to view or copy the configuration. For everyday use, turn the VPN on or off in your chosen app.</p>
     <div id="peers-list">Loading...</div></details>
   </div>
 
@@ -575,12 +620,12 @@
     <p><strong>Keep this window open while you complete these steps. It stays here until you choose Close.</strong></p>
     <ol id="profile-steps"><li><strong>Download the file.</strong> Click the download link above. Choose where to save it if asked. Otherwise open your browser’s Downloads list to find it.</li><li><strong>Open WireGuard.</strong> Choose <strong>Add tunnel → Import tunnel(s) from file</strong>, then select that file.</li><li><strong>Activate.</strong> Select the imported tunnel and click <strong>Activate</strong>.</li></ol>
     <p id="setup-instructions"></p>
-    <p><a href="https://www.wireguard.com/install/" target="_blank" rel="noopener">Install the official WireGuard app</a>. Keep this configuration private and do not share it.</p>
-    <div class="modal-qr-section">
+    <p id="modal-client-help">Keep this configuration private and do not share it.</p>
+    <div class="modal-qr-section" id="profile-qr-section">
       <img id="modal-qr" src="" alt="QR" width="200" height="200" />
       <p>Scan with WireGuard app on iPhone or Android</p>
     </div>
-    <details id="config-details"><summary>Advanced: view configuration</summary><pre id="modal-config"></pre></details>
+    <details id="config-details"><summary>View configuration / manual client setup</summary><pre id="modal-config"></pre></details>
     <div class="row">
       <button class="btn-primary" onclick="downloadConfig()">3. Download my profile</button>
       <button class="btn-muted" onclick="copyConfig(this)">Copy</button>
@@ -588,7 +633,7 @@
       <button class="btn-muted" onclick="closeModal()">Close</button>
     </div>
     <p id="connection-result" role="status"></p>
-    <p>After importing, use WireGuard’s on/off switch whenever you need the VPN. Keep this file private and do not share it.</p>
+    <p>After setup, use your chosen app's on/off switch whenever you need the VPN. Keep this file private and do not share it.</p>
   </div>
 </div>
 
@@ -622,6 +667,59 @@
   const devicePlatform=document.getElementById('device-platform');
   const ua=navigator.userAgent;
   devicePlatform.value=/Android|iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints>1) ? 'mobile' : /Mac/i.test(ua) ? 'mac' : /Linux/i.test(ua) ? 'linux' : 'windows';
+  // The protocol stays WireGuard; the guide changes for the chosen app/device.
+  const vpnClients={
+    wireguard:{name:'WireGuard',devices:['ios','android','windows','mac','linux'],url:'https://www.wireguard.com/install/',docs:'https://www.wireguard.com/quickstart/',summary:'The official client is the simplest option. This portal\'s default profile routes all traffic through the VPN; it does not include mainland bypass rules.',steps:['Install WireGuard for your device, then continue below to prepare a profile. If this device already has one, open its saved profile instead.','Download the .conf file. On desktop choose Add tunnel → Import from file. On mobile tap + and import the file, or scan its QR code from another screen. On Linux use your distribution\'s WireGuard tools or select NetworkManager above.','Activate the tunnel, then use Check my connection below. Confirm that a website opens on the connected device.'],activate:'In WireGuard, select your imported configuration and click Activate (or turn on its switch on mobile).'},
+    shadowrocket:{name:'Shadowrocket / 小火箭',devices:['ios'],url:'https://apps.apple.com/app/shadowrocket/id932747118',docs:'https://apps.apple.com/app/shadowrocket/id932747118',summary:'Use your existing Shadowrocket app with a WireGuard profile issued by this portal. Mainland bypass rules can help WeChat use your normal connection.',manual:true,rules:true,steps:['Prepare a profile below, or open this device\'s saved profile. Download the .conf file and use View configuration / manual client setup in the setup window to see its fields.','In Shadowrocket, add a server (+) and choose Type: WireGuard. Transfer the interface private key and address, server public key, endpoint host and port, MTU and keepalive from your portal profile. The field mapping below explains each value. Do not reuse the keys from your previous server.','Save and select the Hu Lab server. Choose Global Routing → Config and enable your active rules configuration. Apply the WeChat/mainland DIRECT rules below before the final proxy rule.','Turn on Shadowrocket and allow the iOS VPN prompt. Use Check connection in the portal, then test an overseas website and WeChat messages, pictures and calls.'],import:'In Shadowrocket, tap + and select Type: WireGuard. Open this profile\'s View configuration / manual client setup and transfer its values using the field mapping in the guide. Save and select the Hu Lab server; use Global Routing → Config with mainland DIRECT rules.',activate:'In Shadowrocket, select your Hu Lab WireGuard server and turn on its connection switch. Allow the iOS VPN prompt if asked.'},
+    surge:{name:'Surge',devices:['ios','mac'],url:'https://nssurge.com/',docs:'https://manual.nssurge.com/policies/wireguard.html',summary:'An advanced option for iPhone, iPad and Mac. Surge uses a WireGuard policy with routing rules; its profile format differs from the downloaded .conf file.',manual:true,rules:true,steps:['Prepare or open this device\'s portal profile below and view its configuration values.','Follow the linked Surge WireGuard documentation to create a policy in [Proxy] and its matching [WireGuard section-name]. Map PrivateKey to private-key, Address to self-ip (without /32 for this IPv4 profile), DNS to dns-server, MTU to mtu, and peer PublicKey, Endpoint, AllowedIPs and PersistentKeepalive to public-key, endpoint, allowed-ips and keepalive. A standard .conf file is not a complete Surge profile.','Use Rule mode. Place mainland DIRECT rules before the final rule, and point the final rule or its policy group to your Hu Lab WireGuard policy. On Mac enable Enhanced Mode to cover apps beyond the system proxy.','Start Surge, then check the connection below. Test an overseas website and WeChat messages, pictures and calls.'],import:'Use the profile values to create a Surge WireGuard policy and matching WireGuard section, following the linked client documentation. Configure Rule mode and select that policy for overseas traffic. Do not import the .conf file as a complete Surge profile.',activate:'Start Surge with your Hu Lab WireGuard policy selected for overseas traffic in Rule mode. On Mac enable Enhanced Mode for device traffic.'},
+    wgtunnel:{name:'WG Tunnel',devices:['android','android-tv'],url:'https://wgtunnel.com/',docs:'https://wgtunnel.com/docs/android/tunnels/',summary:'An Android alternative with automatic connections and app exclusions. Excluding WeChat sends its traffic directly instead of through this VPN.',steps:['Install WG Tunnel from the official project links. Prepare or open a portal profile for this physical device below.','Use the add/import action in WG Tunnel to import the downloaded .conf file, or scan its WireGuard QR code from another screen. On Android TV, transfer the file privately and use file import.','For WeChat, edit this tunnel\'s Split Tunneling → Excluded Applications and select WeChat. Leave other apps using the tunnel as needed.','Enable the tunnel, check its handshake in the portal, and test browsing and WeChat.'],import:'In WG Tunnel use Add / Import to load the downloaded .conf file (or scan its QR code on a phone). For WeChat, add it to this tunnel\'s Excluded Applications.',activate:'In WG Tunnel, enable the imported tunnel. Confirm the connection below and test WeChat separately.'},
+    networkmanager:{name:'NetworkManager',devices:['linux'],url:'https://networkmanager.dev/',docs:'https://networkmanager.dev/docs/api/latest/nmcli.html',summary:'For Linux desktops using NetworkManager. Import this portal\'s WireGuard profile through Network Settings or nmcli.',steps:['Use your distribution\'s package manager to install NetworkManager with WireGuard support, if needed. Prepare or open a profile below.','Download the .conf file. In Network Settings, add/import a WireGuard connection. Alternatively run: nmcli connection import type wireguard file /path/to/your-profile.conf (replace the path with your actual download).','Activate the imported connection in Network Settings or with nmcli connection up <connection-name>. Use the actual imported connection name.','Check the connection below and open a website on that Linux computer.'],import:'In Linux Network Settings, import the downloaded .conf file as a WireGuard connection. Or use nmcli connection import type wireguard file followed by the actual path to your file.',activate:'Enable the imported WireGuard connection in Linux Network Settings or with nmcli.'}
+  };
+  function applyClientInstructions() {
+    const key=document.getElementById('guide-client').value,client=vpnClients[key];
+    document.getElementById('connect-client-title').textContent='Connect with '+client.name;
+    document.getElementById('open-client-title').textContent='1. Open '+client.name;
+    document.getElementById('wireguard-installed').textContent=client.name+' is open — continue';
+    document.getElementById('import-client-title').textContent='3. Set up '+client.name;
+    document.getElementById('activate-client-instructions').textContent=client.activate+' The website does not turn it on for you.';
+    document.getElementById('modal-client-help').textContent='Client: '+client.name+'. Follow the device and client guide on this page. Keep this configuration private.';
+    if(key!=='wireguard') {
+      document.getElementById('inline-import-instructions').textContent=client.import;
+      document.getElementById('setup-instructions').textContent=client.import+' '+client.activate;
+      document.getElementById('profile-steps').hidden=true;
+    }
+    document.getElementById('profile-qr-section').hidden=!!client.manual;
+  }
+  function updateClientGuide() {
+    const client=vpnClients[document.getElementById('guide-client').value];
+    document.getElementById('client-summary').textContent=client.summary;
+    const download=document.getElementById('client-download');download.href=client.url;download.textContent='Get '+client.name;
+    document.getElementById('client-docs').href=client.docs;
+    const steps=document.getElementById('client-steps');steps.replaceChildren();
+    for(const step of client.steps){const li=document.createElement('li');li.textContent=step;steps.append(li);}
+    document.getElementById('client-routing').hidden=!client.rules;
+    document.getElementById('client-field-guide').hidden=!client.manual;
+    // Restore the normal import wording when switching back from another app.
+    const mobile=devicePlatform.value==='mobile',linux=devicePlatform.value==='linux';
+    document.getElementById('inline-import-instructions').textContent=mobile?'In WireGuard, tap + and import the downloaded .conf file, or scan its QR code from another screen.':linux?'Import the .conf file using your Linux WireGuard tools or network settings.':'In WireGuard, choose Add tunnel → Import from file and select the downloaded .conf file.';
+    document.getElementById('setup-instructions').textContent=document.getElementById('inline-import-instructions').textContent+' Activate the tunnel, then check the connection.';
+    document.getElementById('profile-steps').hidden=mobile || linux;
+    applyClientInstructions();
+  }
+  function updateGuideDevice() {
+    const device=document.getElementById('guide-device').value,select=document.getElementById('guide-client'),previous=select.value;
+    select.replaceChildren();
+    for(const [key,client] of Object.entries(vpnClients))if(client.devices.includes(device)){
+      const option=document.createElement('option');option.value=key;option.textContent=client.name;select.append(option);
+    }
+    if(vpnClients[previous]?.devices.includes(device))select.value=previous;
+    devicePlatform.value=['ios','android','android-tv'].includes(device)?'mobile':device;
+    updateClientGuide();
+  }
+  document.getElementById('guide-device').value=/Android/i.test(ua)?(/TV/i.test(ua)?'android-tv':'android'):/iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints>1)?'ios':devicePlatform.value;
+  document.getElementById('guide-device').addEventListener('change',updateGuideDevice);
+  document.getElementById('guide-client').addEventListener('change',updateClientGuide);
+  updateGuideDevice();
   function suggestDeviceName() {
     const suffix=Array.from(crypto.getRandomValues(new Uint8Array(3)),b=>b.toString(16).padStart(2,'0')).join('');
     document.getElementById('peer-name').value='ResearchVPN-'+suffix;
@@ -812,7 +910,7 @@
       msgEl.textContent = `Your VPN file is ready.`;
       suggestDeviceName();
       showModal(data.name, data.config, data.qr,devicePlatform.value==='mobile');
-      msgEl.textContent=`Profile created: ${data.name}.conf. Click Download in the setup window or in Your profile file below to save it. Then import that file into WireGuard. These instructions stay on the page.`;
+      msgEl.textContent=`Profile created: ${data.name}.conf. Click Download in the setup window or in Your profile file below to save it. Follow your selected client's setup instructions. These instructions stay on the page.`;
     } catch(e) {
       msgEl.textContent=controller.signal.aborted
         ? 'Profile creation took too long. Check Download a previous WireGuard file below before trying again: the profile may already have been saved. Use its download button if it appears there.'
@@ -874,6 +972,7 @@
     document.getElementById('modal-config').textContent = config;
     const qrEl = document.getElementById('modal-qr');
     if (qr) { qrEl.src = qr; qrEl.style.display = 'block'; } else { qrEl.style.display = 'none'; }
+    applyClientInstructions();
     if(openDialog) {
       document.getElementById('config-modal').classList.add('open');
       document.getElementById('profile-dialog').focus();
@@ -901,7 +1000,7 @@
     try {
       const res=await apiFetch(`/api/peers/${encodeURIComponent(name)}/connection`);
       const d=await res.json();if(!res.ok)throw Error(d.error || 'Connection check failed');
-      result.textContent=d.recentHandshake ? name+': your VPN recently connected to the server. Open a website on that device to confirm browsing.' : name+': the server has not seen a recent connection. Click Activate in WireGuard, then check again.';
+      result.textContent=d.recentHandshake ? name+': your VPN recently connected to the server. Open a website on that device to confirm browsing.' : name+': the server has not seen a recent connection. Turn on the connection in your selected VPN app, then check again.';
     }catch(e){result.textContent=e.message;}
   }
 
@@ -917,11 +1016,13 @@
     window.location.assign(stores[platform] || 'https://www.wireguard.com/install/');
   }
 
-  function copyConfig(btn) {
-    navigator.clipboard.writeText(currentConfig).then(() => {
+  async function copyConfig(btn) {
+    if(!currentConfig){btn.textContent='Open a profile first';return;}
+    try {
+      await navigator.clipboard.writeText(currentConfig);
       btn.textContent = 'Copied!';
       setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
-    });
+    } catch {btn.textContent='Select and copy the text below';document.getElementById('config-details').open=true;}
   }
 
   // ── Helpers ────────────────────────────────────────────────────────
