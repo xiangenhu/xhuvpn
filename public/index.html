@@ -456,9 +456,43 @@
   <section class="section" id="client-guide" aria-labelledby="client-guide-title">
     <h2 id="client-guide-title">Choose your device and client</h2>
     <div class="client-selectors">
-      <div><label for="guide-device">Device you want to connect</label><select id="guide-device"><option value="ios">iPhone / iPad</option><option value="android">Android phone / tablet</option><option value="windows">Windows PC</option><option value="mac">Mac</option><option value="linux">Linux computer</option><option value="android-tv">Android TV</option></select></div>
+      <div><label for="guide-device">Device you want to connect</label><select id="guide-device"><option value="ios">iPhone / iPad</option><option value="android">Android phone / tablet</option><option value="huawei">Huawei phone / 华为手机</option><option value="windows">Windows PC</option><option value="mac">Mac</option><option value="linux">Linux computer</option><option value="android-tv">Android TV</option></select></div>
       <div><label for="guide-client">VPN client</label><select id="guide-client"><option value="wireguard">WireGuard</option></select></div>
     </div>
+    <section id="huawei-system-panel" hidden aria-labelledby="huawei-title">
+      <h3 id="huawei-title">Huawei setup / 华为手机设置</h3>
+      <label for="huawei-system">System shown in Settings → About phone / 设置 → 关于手机</label>
+      <select id="huawei-system"><option value="unknown">I need to check / 尚未确认</option><option value="android">Android-compatible EMUI / HarmonyOS 2–4</option><option value="next">HarmonyOS NEXT / HarmonyOS 5 or later</option></select>
+      <p id="huawei-system-status" role="status" aria-live="polite"></p>
+      <article id="huawei-android-instructions" hidden>
+        <h3>Step-by-step setup on an Android-compatible Huawei phone</h3>
+        <ol class="client-steps">
+          <li><strong>Choose your client.</strong> Choose WG Tunnel above if you want WeChat to bypass the VPN. WireGuard is the simpler full-tunnel alternative. Google Play is not required for APK installation.</li>
+          <li><strong>Install from the publisher.</strong> Use <a href="https://download.wireguard.com/android-client/" target="_blank" rel="noopener">WireGuard's official Android APK page</a> or <a href="https://wgtunnel.com/download/" target="_blank" rel="noopener">WG Tunnel's official download page</a> and choose Android / Download .apk. In your browser open the downloaded APK; if prompted, allow this browser or Files app to install it. Permission names vary by Huawei version. You can revoke that source's installation permission afterwards. If the system rejects it, record the message and check the OS version; do not assume a NEXT phone supports Android VPNs.</li>
+          <li><strong>Get this server's profile.</strong> Continue below after opening the app. For this phone's first connection choose Prepare my configuration file. If this phone already has a profile, use Download a previous WireGuard file instead. Save the .conf file in Files / Downloads; do not copy a profile from another physical device or reuse credentials from another server.</li>
+          <li><strong>Import and connect.</strong> WireGuard: tap + → Import from file or archive and choose the .conf file. WG Tunnel: use Add / Import → File. A phone can also scan the profile QR code displayed on another screen. Approve the system VPN request and enable the imported tunnel. Turn off other VPN clients first. Labels may vary with app version.</li>
+          <li><strong>Keep WeChat direct in WG Tunnel.</strong> Before enabling the tunnel, edit it and open Split Tunneling → Excluded Applications. Select WeChat / 微信 (normally com.tencent.mm), save and reconnect. This sends WeChat outside the VPN; it does not automatically bypass all mainland apps. Other apps still use the supplied full-tunnel profile. The WireGuard instructions here do not configure domain-based mainland bypass rules.</li>
+          <li><strong>Verify real use.</strong> Use Check my connection below, then test an overseas website, WeChat messages, photos and a voice/video call. Repeat on Wi-Fi and mobile data. Lock the phone for a few minutes and test again after unlocking. A recent handshake confirms contact with the server, not working DNS or every app feature.</li>
+        </ol>
+        <details><summary>Troubleshooting / 故障排查</summary>
+          <p><strong>No APK or no Google Play:</strong> use the publisher APK links above. Do not search for an Android edition of Shadowrocket using the iPhone instructions.</p>
+          <p><strong>Cannot find the profile:</strong> open Files → Downloads or your browser's Downloads list. The imported file must end in .conf, not an installer APK. Download it again from this phone's saved profile if necessary.</p>
+          <p><strong>Connects but WeChat fails:</strong> confirm WeChat is in WG Tunnel's Excluded Applications and reconnect after saving. Check whether an always-on/lockdown setting blocks traffic outside the VPN. Such blocking conflicts with intentional direct access; keep it only if you prefer blocking that traffic. Test WeChat with the tunnel off to distinguish VPN routing from ordinary connectivity.</p>
+          <p><strong>Disconnects when the screen locks:</strong> search Huawei Settings for App launch / 应用启动管理. For the VPN app, switch from Manage automatically to Manage manually and permit Run in background; enable Auto-launch and Secondary launch if needed. Retest before changing other power settings. Menu names vary by model. See <a href="https://consumer.huawei.com/en/support/content/en-us15850065/" target="_blank" rel="noopener">Huawei's background protection instructions</a>.</p>
+          <p><strong>No recent handshake:</strong> confirm the correct profile is active, other VPNs are off, and internet works with the VPN off. Try another Wi-Fi/mobile network. If both fail, contact Xiangen with the model, full OS version, client name/version, time and error text. Do not send private keys, .conf files or QR codes.</p>
+        </details>
+      </article>
+      <article id="huawei-next-instructions" hidden>
+        <h3>HarmonyOS NEXT / 5+: native client verification required</h3>
+        <ol class="client-steps">
+          <li>Record the exact phone model and full system version from Settings → About phone.</li>
+          <li>Check AppGallery and the publisher's documentation for a native client explicitly supporting standard WireGuard and whole-device VPN access, including importing a personal .conf file.</li>
+          <li>Send Xiangen the client name, version and publisher/documentation link for compatibility checking. We have not verified a native client for this server.</li>
+          <li>Only after compatibility is confirmed should you create/import a profile and test browsing, WeChat, network changes and screen-lock behavior. For now use a supported Android/iPhone/computer, or an independently configured WireGuard router, if available.</li>
+        </ol>
+        <p>Huawei supports selected Android apps through 卓易通/出境易. Installing or opening a VPN app in one of these environments does not establish whole-phone tunneling. This portal therefore does not offer an Android client or profile-creation workflow for this selection. <a href="https://consumer.huawei.com/cn/support/content/zh-cn16061787/" target="_blank" rel="noopener">Huawei's installation guidance</a>.</p>
+      </article>
+    </section>
     <p id="client-summary" aria-live="polite"></p>
     <p><a id="client-download" href="https://www.wireguard.com/install/" target="_blank" rel="noopener">Get WireGuard</a> · <a id="client-docs" href="https://www.wireguard.com/quickstart/" target="_blank" rel="noopener">Client documentation</a></p>
     <ol id="client-steps" class="client-steps"></ol>
@@ -714,11 +748,29 @@
     document.getElementById('inline-import-instructions').textContent=mobile?'In WireGuard, tap + and import the downloaded .conf file, or scan its QR code from another screen.':linux?'Import the .conf file using your Linux WireGuard tools or network settings.':'In WireGuard, choose Add tunnel → Import from file and select the downloaded .conf file.';
     document.getElementById('setup-instructions').textContent=document.getElementById('inline-import-instructions').textContent+' Activate the tunnel, then check the connection.';
     document.getElementById('profile-steps').hidden=mobile || linux;
+    if(document.getElementById('guide-device').value==='huawei' && document.getElementById('guide-client').value==='wireguard'){
+      download.href='https://download.wireguard.com/android-client/';download.textContent='Download official WireGuard Android APK';
+    }
     applyClientInstructions();
   }
   function updateGuideDevice() {
-    const device=document.getElementById('guide-device').value,select=document.getElementById('guide-client'),previous=select.value;
-    select.replaceChildren();
+    const chosen=document.getElementById('guide-device').value,isHuawei=chosen==='huawei';
+    const system=document.getElementById('huawei-system').value,blocked=isHuawei && system!=='android';
+    const select=document.getElementById('guide-client'),previous=select.value;
+    document.getElementById('huawei-system-panel').hidden=!isHuawei;
+    document.getElementById('huawei-android-instructions').hidden=!isHuawei || system!=='android';
+    document.getElementById('huawei-next-instructions').hidden=!isHuawei || system!=='next';
+    document.getElementById('huawei-system-status').textContent=!isHuawei?'':system==='unknown'?'Check Settings → About phone first. Choose the system above before preparing a connection.':system==='next'?'Native WireGuard compatibility is not verified. Follow the checks below; Android APK instructions do not establish whole-phone VPN support.':'Android-compatible Huawei setup selected. Follow the detailed instructions below.';
+    select.replaceChildren();select.disabled=blocked;
+    document.getElementById('wireguard-panel').hidden=blocked;
+    for(const id of ['client-summary','client-download','client-docs','client-steps'])document.getElementById(id).hidden=blocked;
+    if(blocked){
+      const option=document.createElement('option');option.value='';option.textContent=system==='next'?'Native client verification needed':'Check Huawei system first';select.append(option);
+      document.getElementById('client-routing').hidden=true;
+      document.getElementById('client-field-guide').hidden=true;
+      return;
+    }
+    const device=isHuawei?'android':chosen;
     for(const [key,client] of Object.entries(vpnClients))if(client.devices.includes(device)){
       const option=document.createElement('option');option.value=key;option.textContent=client.name;select.append(option);
     }
@@ -726,7 +778,8 @@
     devicePlatform.value=['ios','android','android-tv'].includes(device)?'mobile':device;
     updateClientGuide();
   }
-  document.getElementById('guide-device').value=/Android/i.test(ua)?(/TV/i.test(ua)?'android-tv':'android'):/iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints>1)?'ios':devicePlatform.value;
+  document.getElementById('guide-device').value=/HUAWEI|HarmonyOS|HongMeng/i.test(ua)?'huawei':/Android/i.test(ua)?(/TV/i.test(ua)?'android-tv':'android'):/iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints>1)?'ios':devicePlatform.value;
+  document.getElementById('huawei-system').addEventListener('change',updateGuideDevice);
   document.getElementById('guide-device').addEventListener('change',updateGuideDevice);
   document.getElementById('guide-client').addEventListener('change',updateClientGuide);
   updateGuideDevice();
